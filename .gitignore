@@ -45,3 +45,10 @@ app.*.map.json
 /android/app/release
 
 pubspec.lock
+
+# Play upload (distribute_cli / Fastlane)
+distribution/google-key.json
+distribution.log
+distribution
+distribution.yaml
+tool
