@@ -1,0 +1,78 @@
+import 'game_difficulty.dart';
+
+/// A stored successful solve for history / stats.
+class SudokuWinRecord {
+  const SudokuWinRecord({
+    required this.id,
+    required this.completedAtEpochMs,
+    required this.durationMs,
+    required this.difficultyKey,
+    required this.mistakes,
+    required this.hintsUsed,
+  });
+
+  final String id;
+  final int completedAtEpochMs;
+  final int durationMs;
+  final String difficultyKey;
+  final int mistakes;
+  final int hintsUsed;
+
+  GameDifficulty get difficulty => gameDifficultyFromName(difficultyKey);
+
+  Duration get duration => Duration(milliseconds: durationMs);
+
+  String get durationLabel => formatSolveDuration(duration);
+
+  DateTime get completedAt =>
+      DateTime.fromMillisecondsSinceEpoch(completedAtEpochMs, isUtc: false);
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'completedAtEpochMs': completedAtEpochMs,
+        'durationMs': durationMs,
+        'difficultyKey': difficultyKey,
+        'mistakes': mistakes,
+        'hintsUsed': hintsUsed,
+      };
+
+  factory SudokuWinRecord.fromJson(Map<String, dynamic> json) {
+    return SudokuWinRecord(
+      id: json['id'] as String,
+      completedAtEpochMs: json['completedAtEpochMs'] as int,
+      durationMs: json['durationMs'] as int,
+      difficultyKey: json['difficultyKey'] as String,
+      mistakes: json['mistakes'] as int,
+      hintsUsed: (json['hintsUsed'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  factory SudokuWinRecord.capture({
+    required GameDifficulty difficulty,
+    required Duration elapsed,
+    required int mistakes,
+    required int hintsUsed,
+  }) {
+    final now = DateTime.now();
+    return SudokuWinRecord(
+      id: '${now.millisecondsSinceEpoch}_${now.microsecondsSinceEpoch}',
+      completedAtEpochMs: now.millisecondsSinceEpoch,
+      durationMs: elapsed.inMilliseconds,
+      difficultyKey: difficulty.name,
+      mistakes: mistakes,
+      hintsUsed: hintsUsed,
+    );
+  }
+
+  static String formatSolveDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    final s = d.inSeconds.remainder(60);
+    final mm = m.toString().padLeft(2, '0');
+    final ss = s.toString().padLeft(2, '0');
+    if (h > 0) {
+      return '$h:$mm:$ss';
+    }
+    return '$mm:$ss';
+  }
+}
