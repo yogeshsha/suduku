@@ -40,11 +40,8 @@ class NumberPad extends StatelessWidget {
         [6, 7, 8, 9],
       ];
     }
-    if (max == 16) {
-      return List.generate(
-        4,
-        (r) => List.generate(4, (c) => r * 4 + c + 1),
-      );
+    if (max == 12) {
+      return List.generate(3, (r) => List.generate(4, (c) => r * 4 + c + 1));
     }
     final perRow = max <= 12 ? 6 : 5;
     final rows = <List<int>>[];
@@ -67,16 +64,14 @@ class NumberPad extends StatelessWidget {
     final rows = _digitRows(maxDigit);
     final fontSize = maxDigit <= 9
         ? 18.0
-        : maxDigit <= 16
-            ? 14.0
-            : 12.0;
+        : maxDigit <= 12
+        ? 14.0
+        : 12.0;
 
     Widget digitButton(int n) {
       final hidden = digitsFullyPlaced.contains(n);
       if (hidden) {
-        return const Expanded(
-          child: SizedBox(height: _slotHeight),
-        );
+        return const Expanded(child: SizedBox(height: _slotHeight));
       }
 
       final isActive = activeDigit == n;
@@ -152,9 +147,7 @@ class NumberPad extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             for (final row in rows)
-              Row(
-                children: [for (final n in row) digitButton(n)],
-              ),
+              Row(children: [for (final n in row) digitButton(n)]),
             const SizedBox(height: 10),
             Row(
               children: [

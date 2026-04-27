@@ -26,8 +26,18 @@ class _SudokuHistoryPageState extends State<SudokuHistoryPage> {
   HistoryListFilter _filter = HistoryListFilter.all;
 
   static const _monthAbbr = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   List<SudokuWinRecord> get _visibleRecords {
@@ -228,7 +238,9 @@ class _SudokuHistoryPageState extends State<SudokuHistoryPage> {
       appBar: AppBar(
         title: Text(
           'History',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
         ),
         actions: [
           IconButton(
@@ -288,27 +300,27 @@ class _SudokuHistoryPageState extends State<SudokuHistoryPage> {
                       ],
                     )
                   : _records.isEmpty
-                      ? _buildEmptyAll()
-                      : visible.isEmpty
-                          ? _buildEmptyFilter(_filter)
-                          : ListView.separated(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-                              itemCount: visible.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 14),
-                              itemBuilder: (context, index) {
-                                final r = visible[index];
-                                return FadeSlideIn(
-                                  index: index,
-                                  child: _HistoryCard(
-                                    record: r,
-                                    whenLabel: _formatWhen(r.completedAt),
-                                    onDelete: () => _confirmDeleteRecord(r),
-                                  ),
-                                );
-                              },
-                            ),
+                  ? _buildEmptyAll()
+                  : visible.isEmpty
+                  ? _buildEmptyFilter(_filter)
+                  : ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                      itemCount: visible.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 14),
+                      itemBuilder: (context, index) {
+                        final r = visible[index];
+                        return FadeSlideIn(
+                          index: index,
+                          child: _HistoryCard(
+                            record: r,
+                            whenLabel: _formatWhen(r.completedAt),
+                            onDelete: () => _confirmDeleteRecord(r),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ),
         ],
@@ -334,20 +346,20 @@ class _HistoryCard extends StatelessWidget {
   ) {
     return switch (d) {
       GameDifficulty.easy => (
-          bg: cs.tertiaryContainer.withValues(alpha: 0.55),
-          fg: cs.onTertiaryContainer,
-          stripe: cs.tertiary,
-        ),
+        bg: cs.tertiaryContainer.withValues(alpha: 0.55),
+        fg: cs.onTertiaryContainer,
+        stripe: cs.tertiary,
+      ),
       GameDifficulty.medium => (
-          bg: cs.secondaryContainer.withValues(alpha: 0.55),
-          fg: cs.onSecondaryContainer,
-          stripe: cs.secondary,
-        ),
+        bg: cs.secondaryContainer.withValues(alpha: 0.55),
+        fg: cs.onSecondaryContainer,
+        stripe: cs.secondary,
+      ),
       GameDifficulty.expert => (
-          bg: cs.primaryContainer.withValues(alpha: 0.65),
-          fg: cs.onPrimaryContainer,
-          stripe: cs.primary,
-        ),
+        bg: cs.primaryContainer.withValues(alpha: 0.65),
+        fg: cs.onPrimaryContainer,
+        stripe: cs.primary,
+      ),
     };
   }
 
@@ -356,8 +368,7 @@ class _HistoryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final tier = _tierStyle(record.difficulty, colorScheme);
-    final stripeColor =
-        record.isLost ? colorScheme.error : tier.stripe;
+    final stripeColor = record.isLost ? colorScheme.error : tier.stripe;
 
     return Material(
       color: colorScheme.surface,
@@ -396,10 +407,12 @@ class _HistoryCard extends StatelessWidget {
                         CircleAvatar(
                           radius: 24,
                           backgroundColor: record.isLost
-                              ? colorScheme.errorContainer
-                                  .withValues(alpha: 0.55)
-                              : colorScheme.primaryContainer
-                                  .withValues(alpha: 0.45),
+                              ? colorScheme.errorContainer.withValues(
+                                  alpha: 0.55,
+                                )
+                              : colorScheme.primaryContainer.withValues(
+                                  alpha: 0.45,
+                                ),
                           child: Icon(
                             record.isWin
                                 ? Icons.task_alt_rounded
@@ -444,10 +457,11 @@ class _HistoryCard extends StatelessWidget {
                                       TextSpan(
                                         style: theme.textTheme.bodyMedium
                                             ?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                          height: 1.25,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                              height: 1.25,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                         children: [
                                           TextSpan(
                                             text: record.difficulty.title,
@@ -462,8 +476,8 @@ class _HistoryCard extends StatelessWidget {
                                             text:
                                                 '${record.dimension}×${record.dimension} puzzle',
                                             style: TextStyle(
-                                              color: colorScheme
-                                                  .onSurfaceVariant,
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
                                             ),
                                           ),
                                         ],

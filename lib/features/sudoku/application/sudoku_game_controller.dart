@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/sudoku_fludoku_isolate.dart';
 import '../data/sudoku_six_engine.dart';
+import '../data/sudoku_twelve_engine.dart';
 import '../domain/game_difficulty.dart';
 import '../domain/sudoku_board_size.dart';
 
@@ -21,6 +22,7 @@ class SudokuGameController extends ChangeNotifier {
 
   Board? _board;
   SudokuSixBundle? _six;
+  SudokuTwelveBundle? _twelve;
   List<List<int>>? _solutionValues;
   bool _loading = false;
   String? _error;
@@ -38,7 +40,7 @@ class SudokuGameController extends ChangeNotifier {
   Timer? _tickTimer;
 
   /// Updated every second while the clock runs so the time stat can repaint
-  /// without rebuilding the whole board (important for 16×16).
+  /// without rebuilding the whole board (important for larger grids).
   final ValueNotifier<String> elapsedLabelNotifier = ValueNotifier<String>(
     '00:00',
   );
@@ -58,17 +60,21 @@ class SudokuGameController extends ChangeNotifier {
 
   bool get _usesSix => _boardSize.usesCustomSixEngine;
 
-  bool get hasPlayableGrid => _board != null || _six != null;
+  bool get _usesTwelve => _boardSize.usesCustomTwelveEngine;
+
+  bool get hasPlayableGrid => _board != null || _six != null || _twelve != null;
 
   int get puzzleDimension {
     if (_board != null) return _board!.dimension;
     if (_six != null) return SudokuSixBundle.dimension;
+    if (_twelve != null) return SudokuTwelveBundle.dimension;
     return _boardSize.dimension;
   }
 
   int get maxDigit {
     if (_board != null) return _board!.maxValue;
     if (_six != null) return SudokuSixBundle.dimension;
+    if (_twelve != null) return SudokuTwelveBundle.dimension;
     return _boardSize.dimension;
   }
 
@@ -80,11 +86,21 @@ class SudokuGameController extends ChangeNotifier {
     return s * s == dim ? s : 3;
   }
 
-  int get boxRowsResolved =>
-      _board != null ? _sqrtBoxSide(_board!.dimension) : _boardSize.boxRows;
+  int get boxRowsResolved => _board != null
+      ? _sqrtBoxSide(_board!.dimension)
+      : _six != null
+      ? SudokuSixBundle.boxRows
+      : _twelve != null
+      ? SudokuTwelveBundle.boxRows
+      : _boardSize.boxRows;
 
-  int get boxColsResolved =>
-      _board != null ? _sqrtBoxSide(_board!.dimension) : _boardSize.boxCols;
+  int get boxColsResolved => _board != null
+      ? _sqrtBoxSide(_board!.dimension)
+      : _six != null
+      ? SudokuSixBundle.boxCols
+      : _twelve != null
+      ? SudokuTwelveBundle.boxCols
+      : _boardSize.boxCols;
 
   Duration get elapsed => _gameClock?.elapsed ?? Duration.zero;
   String get elapsedLabel => elapsedLabelNotifier.value;
@@ -94,6 +110,8 @@ class SudokuGameController extends ChangeNotifier {
     if (b != null) return b.getAt(row: row, col: col);
     final s = _six;
     if (s != null) return s.grid[row][col];
+    final t = _twelve;
+    if (t != null) return t.grid[row][col];
     return 0;
   }
 
@@ -112,7 +130,16 @@ class SudokuGameController extends ChangeNotifier {
       final dim = SudokuSixBundle.dimension;
       final out = <int>{};
       for (var d = 1; d <= dim; d++) {
-        if (_countDigitSix(s.grid, d) >= dim) out.add(d);
+        if (_countDigitInGrid(s.grid, d) >= dim) out.add(d);
+      }
+      return out;
+    }
+    final t = _twelve;
+    if (t != null) {
+      final dim = SudokuTwelveBundle.dimension;
+      final out = <int>{};
+      for (var d = 1; d <= dim; d++) {
+        if (_countDigitInGrid(t.grid, d) >= dim) out.add(d);
       }
       return out;
     }
@@ -131,6 +158,8 @@ class SudokuGameController extends ChangeNotifier {
     if (b != null) return b.isComplete;
     final s = _six;
     if (s != null) return SudokuSixBundle.gridSolvedAndValid(s.grid);
+    final t = _twelve;
+    if (t != null) return SudokuTwelveBundle.gridSolvedAndValid(t.grid);
     return false;
   }
 
@@ -197,6 +226,7 @@ class SudokuGameController extends ChangeNotifier {
     _selectedCol = null;
     _board = null;
     _six = null;
+    _twelve = null;
     _solutionValues = null;
     elapsedLabelNotifier.value = '00:00';
     notifyListeners();
@@ -210,6 +240,21 @@ class SudokuGameController extends ChangeNotifier {
             .map((r) => List<int>.from(r))
             .toList();
         _board = null;
+        _twelve = null;
+      } else if (_usesTwelve) {
+        final diff = _difficulty;
+        final grids = await Isolate.run(() {
+          final b = SudokuTwelveBundle.generate(diff);
+          return (
+            puzzle: [for (final r in b.grid) List<int>.from(r)],
+            solution: [for (final r in b.solution) List<int>.from(r)],
+          );
+        });
+        if (genId != _genToken) return;
+        _twelve = SudokuTwelveBundle.create(grids.puzzle, grids.solution);
+        _solutionValues = grids.solution.map((r) => List<int>.from(r)).toList();
+        _board = null;
+        _six = null;
       } else {
         final dim = _boardSize.dimension;
         final ord = switch (_difficulty) {
@@ -233,6 +278,7 @@ class SudokuGameController extends ChangeNotifier {
         _board = Board.withValues(res.puzzle!);
         _solutionValues = res.solution;
         _six = null;
+        _twelve = null;
       }
     } catch (e) {
       if (genId != _genToken) return;
@@ -256,6 +302,10 @@ class SudokuGameController extends ChangeNotifier {
     final s = _six;
     if (s != null) {
       return s.readOnlyKeys.contains('$row,$col');
+    }
+    final t = _twelve;
+    if (t != null) {
+      return t.readOnlyKeys.contains('$row,$col');
     }
     return false;
   }
@@ -301,6 +351,27 @@ class SudokuGameController extends ChangeNotifier {
       }
       _clearHighlightIfThatDigitIsComplete();
       notifyListeners();
+      return;
+    }
+
+    final t = _twelve;
+    if (t != null) {
+      final g = t.grid;
+      final old = g[row][col];
+      g[row][col] = 0;
+      final ok = SudokuTwelveBundle.validPlacement(g, row, col, digit);
+      if (!ok) {
+        g[row][col] = old;
+        _registerMistake();
+        return;
+      }
+      g[row][col] = digit;
+      if (SudokuTwelveBundle.gridSolvedAndValid(g)) {
+        _stopClockForTerminalState();
+        _pendingOutcome = SudokuGameOutcome.won;
+      }
+      _clearHighlightIfThatDigitIsComplete();
+      notifyListeners();
     }
   }
 
@@ -336,6 +407,13 @@ class SudokuGameController extends ChangeNotifier {
     final s = _six;
     if (s != null) {
       s.grid[row][col] = 0;
+      _highlightDigit = null;
+      notifyListeners();
+      return;
+    }
+    final t = _twelve;
+    if (t != null) {
+      t.grid[row][col] = 0;
       _highlightDigit = null;
       notifyListeners();
     }
@@ -380,6 +458,19 @@ class SudokuGameController extends ChangeNotifier {
       }
       _clearHighlightIfThatDigitIsComplete();
       notifyListeners();
+      return;
+    }
+    final t = _twelve;
+    if (t != null) {
+      t.grid[row][col] = target;
+      _highlightDigit = target;
+      _hintsUsed++;
+      if (SudokuTwelveBundle.gridSolvedAndValid(t.grid)) {
+        _stopClockForTerminalState();
+        _pendingOutcome = SudokuGameOutcome.won;
+      }
+      _clearHighlightIfThatDigitIsComplete();
+      notifyListeners();
     }
   }
 
@@ -394,7 +485,7 @@ class SudokuGameController extends ChangeNotifier {
     return n;
   }
 
-  static int _countDigitSix(List<List<int>> g, int digit) {
+  static int _countDigitInGrid(List<List<int>> g, int digit) {
     var n = 0;
     for (final row in g) {
       for (final v in row) {
@@ -416,7 +507,14 @@ class SudokuGameController extends ChangeNotifier {
     }
     final s = _six;
     if (s != null) {
-      if (_countDigitSix(s.grid, h) >= SudokuSixBundle.dimension) {
+      if (_countDigitInGrid(s.grid, h) >= SudokuSixBundle.dimension) {
+        _highlightDigit = null;
+      }
+      return;
+    }
+    final t = _twelve;
+    if (t != null) {
+      if (_countDigitInGrid(t.grid, h) >= SudokuTwelveBundle.dimension) {
         _highlightDigit = null;
       }
     }

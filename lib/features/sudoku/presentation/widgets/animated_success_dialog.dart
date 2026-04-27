@@ -50,7 +50,11 @@ class AnimatedSuccessDialog extends StatelessWidget {
             style: theme.textTheme.bodyLarge?.copyWith(height: 1.35),
           ),
           const SizedBox(height: 14),
-          _SummaryRow(icon: Icons.timer_outlined, label: 'Time', value: timeLabel),
+          _SummaryRow(
+            icon: Icons.timer_outlined,
+            label: 'Time',
+            value: timeLabel,
+          ),
           _SummaryRow(
             icon: Icons.flag_outlined,
             label: 'Difficulty',

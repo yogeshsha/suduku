@@ -20,7 +20,7 @@ class SudokuWinRecord {
   final int mistakes;
   final int hintsUsed;
 
-  /// Grid edge length (4, 6, 9, or 16). Legacy JSON defaults to 9.
+  /// Grid edge length (4, 6, 9, 12, …). Legacy JSON defaults to 9.
   final int dimension;
 
   /// `'win'` or `'lost'` (legacy JSON omits this → win).
@@ -39,15 +39,15 @@ class SudokuWinRecord {
       DateTime.fromMillisecondsSinceEpoch(completedAtEpochMs, isUtc: false);
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'completedAtEpochMs': completedAtEpochMs,
-        'durationMs': durationMs,
-        'difficultyKey': difficultyKey,
-        'mistakes': mistakes,
-        'hintsUsed': hintsUsed,
-        'outcomeKey': outcomeKey,
-        'dimension': dimension,
-      };
+    'id': id,
+    'completedAtEpochMs': completedAtEpochMs,
+    'durationMs': durationMs,
+    'difficultyKey': difficultyKey,
+    'mistakes': mistakes,
+    'hintsUsed': hintsUsed,
+    'outcomeKey': outcomeKey,
+    'dimension': dimension,
+  };
 
   factory SudokuWinRecord.fromJson(Map<String, dynamic> json) {
     return SudokuWinRecord(

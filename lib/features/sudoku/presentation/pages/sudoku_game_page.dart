@@ -552,11 +552,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              widget.boardSize.dimension >= 16
-                                  ? 'Working in the background. 16×16 can take up '
-                                        'to a couple of minutes—this screen stays '
-                                        'responsive.'
-                                  : 'Finding a unique ${widget.boardSize.label} grid for you',
+                              'Finding a unique ${widget.boardSize.label} grid for you',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,

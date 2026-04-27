@@ -47,10 +47,10 @@ class ThemeModePickerButton extends StatelessWidget {
   }
 
   static IconData _iconFor(ThemeMode mode) => switch (mode) {
-        ThemeMode.light => Icons.light_mode_rounded,
-        ThemeMode.dark => Icons.dark_mode_rounded,
-        ThemeMode.system => Icons.brightness_auto_rounded,
-      };
+    ThemeMode.light => Icons.light_mode_rounded,
+    ThemeMode.dark => Icons.dark_mode_rounded,
+    ThemeMode.system => Icons.brightness_auto_rounded,
+  };
 
   static PopupMenuEntry<ThemeMode> _item(
     BuildContext context, {
@@ -75,8 +75,8 @@ class ThemeModePickerButton extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

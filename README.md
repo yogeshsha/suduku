@@ -1,6 +1,6 @@
 # suduko
 
-Flutter Sudoku game with difficulty selection, win history (persisted with `shared_preferences`), and light/dark theming. Puzzle generation and solving use the [`fludoku`](https://pub.dev/packages/fludoku) package.
+Flutter Sudoku game with difficulty selection, win history (persisted with `shared_preferences`), and light/dark theming. **4×4** and **9×9** puzzles use [`fludoku`](https://pub.dev/packages/fludoku); **6×6** and **12×12** use small built-in generators (2×3 and 3×4 blocks).
 
 ## Project structure
 
@@ -27,6 +27,7 @@ suduku/
 │           │   └── win_history_repository.dart   # Persisted win history
 │           ├── domain/
 │           │   ├── game_difficulty.dart
+│           │   ├── sudoku_board_size.dart
 │           │   └── sudoku_win_record.dart
 │           └── presentation/
 │               ├── navigation/
