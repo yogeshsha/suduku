@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../route_observer.dart';
@@ -5,21 +7,22 @@ import '../../../../theme/theme_mode_picker_button.dart';
 import '../../application/sudoku_game_controller.dart';
 import '../../data/win_history_repository.dart';
 import '../../domain/game_difficulty.dart';
+import '../../domain/sudoku_board_size.dart';
 import '../../domain/sudoku_win_record.dart';
 import '../widgets/animated_success_dialog.dart';
 import '../widgets/how_to_play.dart';
 import '../widgets/mistake_and_game_over_dialogs.dart';
 import '../widgets/number_pad.dart';
 import '../widgets/sudoku_grid.dart';
-import 'sudoku_history_page.dart';
-
 class SudokuGamePage extends StatefulWidget {
   const SudokuGamePage({
     super.key,
     required this.difficulty,
+    required this.boardSize,
   });
 
   final GameDifficulty difficulty;
+  final SudokuBoardSize boardSize;
 
   @override
   State<SudokuGamePage> createState() => _SudokuGamePageState();
@@ -27,7 +30,9 @@ class SudokuGamePage extends StatefulWidget {
 
 class _SudokuGamePageState extends State<SudokuGamePage>
     with RouteAware, WidgetsBindingObserver {
-  late final SudokuGameController _controller = SudokuGameController();
+  late final SudokuGameController _controller = SudokuGameController(
+    boardSize: widget.boardSize,
+  );
   bool _outcomeDialogScheduled = false;
   bool _mistakeDialogScheduled = false;
 
@@ -38,7 +43,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
   bool get _ambientPaused => _routeCovered || _appBackgrounded;
 
   bool get _gameUiPaused =>
-      _controller.board != null &&
+      _controller.hasPlayableGrid &&
       !_controller.loading &&
       (_userPaused || _ambientPaused);
 
@@ -50,7 +55,9 @@ class _SudokuGamePageState extends State<SudokuGamePage>
     WidgetsBinding.instance.addObserver(this);
     _controller.addListener(_onController);
     _controller.setDifficulty(widget.difficulty);
-    _controller.startNewGame();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_controller.startNewGame());
+    });
   }
 
   @override
@@ -124,10 +131,13 @@ class _SudokuGamePageState extends State<SudokuGamePage>
 
   void _requestNewPuzzle() {
     setState(() => _userPaused = false);
-    _controller.startNewGame();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncClockToPauseState();
-    });
+    unawaited(_controller.startNewGame().then((_) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _syncClockToPauseState();
+        });
+      }
+    }));
   }
 
   void _onController() {
@@ -165,10 +175,6 @@ class _SudokuGamePageState extends State<SudokuGamePage>
       });
     }
     setState(() {});
-  }
-
-  void _openHistory() {
-    Navigator.of(context).push<void>(SudokuHistoryPage.route());
   }
 
   void _confirmExitGame() {
@@ -248,6 +254,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         elapsed: _controller.elapsed,
         mistakes: _controller.mistakes,
         hintsUsed: _controller.hintsUsed,
+        dimension: _controller.puzzleDimension,
       );
       try {
         final repo = await WinHistoryRepository.instance();
@@ -265,10 +272,13 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         onNewGame: () {
           if (!mounted) return;
           setState(() => _userPaused = false);
-          _controller.startNewGame();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _syncClockToPauseState();
-          });
+          unawaited(_controller.startNewGame().then((_) {
+            if (mounted) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _syncClockToPauseState();
+              });
+            }
+          }));
         },
         onHome: () {
           if (!mounted) return;
@@ -282,6 +292,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         elapsed: _controller.elapsed,
         mistakes: _controller.mistakes,
         hintsUsed: _controller.hintsUsed,
+        dimension: _controller.puzzleDimension,
       );
       try {
         final repo = await WinHistoryRepository.instance();
@@ -300,10 +311,13 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         onNewGame: () {
           if (!mounted) return;
           setState(() => _userPaused = false);
-          _controller.startNewGame();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _syncClockToPauseState();
-          });
+          unawaited(_controller.startNewGame().then((_) {
+            if (mounted) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _syncClockToPauseState();
+              });
+            }
+          }));
         },
         onHome: () {
           if (!mounted) return;
@@ -316,10 +330,9 @@ class _SudokuGamePageState extends State<SudokuGamePage>
   }
 
   bool get _canUsePauseControl {
-    final b = _controller.board;
-    if (b == null || _controller.loading) return false;
+    if (!_controller.hasPlayableGrid || _controller.loading) return false;
     if (_controller.pendingOutcome != null) return false;
-    if (b.isComplete || _controller.isGameOver) return false;
+    if (_controller.isPuzzleComplete || _controller.isGameOver) return false;
     if (_ambientPaused) return false;
     return true;
   }
@@ -328,7 +341,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final board = _controller.board;
+    final hasGrid = _controller.hasPlayableGrid;
     final loading = _controller.loading;
     final err = _controller.error;
 
@@ -357,7 +370,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                 ),
               ),
               Text(
-                _controller.difficulty.title,
+                '${widget.boardSize.label} · ${_controller.difficulty.title}',
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -460,7 +473,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                           ),
                         ),
                       ),
-                    if (board != null) ...[
+                    if (hasGrid) ...[
                       if (err != null) const SizedBox(height: 12),
                       if (_gameUiPaused)
                         _PausePlaceholder(
@@ -472,7 +485,10 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                         )
                       else ...[
                         SudokuGrid(
-                          board: board,
+                          dimension: _controller.puzzleDimension,
+                          boxRows: _controller.boxRowsResolved,
+                          boxCols: _controller.boxColsResolved,
+                          valueAt: _controller.cellAt,
                           selectedRow: _controller.selectedRow,
                           selectedCol: _controller.selectedCol,
                           highlightDigit: _controller.highlightDigit,
@@ -481,6 +497,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                         ),
                         const SizedBox(height: 22),
                         NumberPad(
+                          maxDigit: _controller.maxDigit,
                           enabled: _controller.canPlay,
                           activeDigit: _controller.highlightDigit,
                           digitsFullyPlaced: _controller.digitsFullyPlaced,
@@ -525,7 +542,12 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Finding a unique 9×9 grid for you',
+                              widget.boardSize.dimension >= 16
+                                  ? 'Working in the background. 16×16 can take up '
+                                      'to a couple of minutes—this screen stays '
+                                      'responsive.'
+                                  : 'Finding a unique ${widget.boardSize.label} grid for you',
+                              textAlign: TextAlign.center,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),

@@ -25,7 +25,7 @@ class MistakeFeedbackDialog extends StatelessWidget {
 
     final detail = remaining == 1
         ? 'The next wrong digit ends this puzzle.'
-        : 'Keep going—double-check rows, columns, and 3×3 boxes.';
+        : 'Keep going—double-check rows, columns, and box regions.';
 
     return AlertDialog(
       icon: TweenAnimationBuilder<double>(
@@ -47,7 +47,7 @@ class MistakeFeedbackDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'That number conflicts with Sudoku rules for this row, column, or 3×3 box.',
+            'That number conflicts with Sudoku rules for this row, column, or box.',
             style: theme.textTheme.bodyLarge?.copyWith(height: 1.35),
           ),
           const SizedBox(height: 16),

@@ -459,7 +459,8 @@ class _HistoryCard extends StatelessWidget {
                                           ),
                                           const TextSpan(text: ' · '),
                                           TextSpan(
-                                            text: '9×9 puzzle',
+                                            text:
+                                                '${record.dimension}×${record.dimension} puzzle',
                                             style: TextStyle(
                                               color: colorScheme
                                                   .onSurfaceVariant,

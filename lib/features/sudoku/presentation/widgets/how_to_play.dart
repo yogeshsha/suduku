@@ -42,9 +42,10 @@ Future<void> showHowToPlay(BuildContext context) {
                 _Section(
                   title: 'Goal',
                   body:
-                      'Fill the 9×9 grid so every row, every column, and each '
-                      'of the nine 3×3 boxes contains the digits 1 through 9 '
-                      'exactly once. No repeats in any row, column, or box.',
+                      'Fill the grid so every row, every column, and each box '
+                      'region contains every digit from 1 up to the grid size '
+                      'exactly once. Larger puzzles use more digits; rules stay '
+                      'the same.',
                   icon: Icons.flag_rounded,
                   colorScheme: colorScheme,
                   theme: theme,
@@ -62,10 +63,10 @@ Future<void> showHowToPlay(BuildContext context) {
                 _Section(
                   title: 'Entering answers',
                   body:
-                      'Tap a cell, then tap a number on the pad (1–9). Wrong '
-                      'moves that break Sudoku rules count as mistakes. '
-                      'Digits you have fully placed nine times disappear from '
-                      'the pad to help you track progress.',
+                      'Tap a cell, then tap a number on the pad. Wrong moves that '
+                      'break Sudoku rules count as mistakes. When a digit is '
+                      'fully placed across the grid, it can disappear from the '
+                      'pad to help you track progress.',
                   icon: Icons.touch_app_rounded,
                   colorScheme: colorScheme,
                   theme: theme,
@@ -92,10 +93,12 @@ Future<void> showHowToPlay(BuildContext context) {
                   theme: theme,
                 ),
                 _Section(
-                  title: 'Difficulty',
+                  title: 'Grid size & difficulty',
                   body:
-                      'Easy puzzles leave more clues; Expert leaves fewer. '
-                      'Each puzzle has one unique solution.',
+                      'Pick a grid size on the home screen (4×4 up to 16×16, '
+                      'plus 6×6 mini). '
+                      'Easy leaves more clues; Expert leaves fewer. Each puzzle '
+                      'has one unique solution.',
                   icon: Icons.trending_up_rounded,
                   colorScheme: colorScheme,
                   theme: theme,

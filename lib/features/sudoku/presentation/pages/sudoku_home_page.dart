@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../theme/theme_mode_picker_button.dart';
 import '../../domain/game_difficulty.dart';
+import '../../domain/sudoku_board_size.dart';
 import '../widgets/how_to_play.dart';
 import 'sudoku_game_page.dart';
 import 'sudoku_history_page.dart';
@@ -16,11 +17,15 @@ class SudokuHomePage extends StatefulWidget {
 
 class _SudokuHomePageState extends State<SudokuHomePage> {
   GameDifficulty _difficulty = GameDifficulty.medium;
+  SudokuBoardSize _boardSize = SudokuBoardSize.dim9;
 
   void _openGame() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (context) => SudokuGamePage(difficulty: _difficulty),
+        builder: (context) => SudokuGamePage(
+          difficulty: _difficulty,
+          boardSize: _boardSize,
+        ),
       ),
     );
   }
@@ -85,7 +90,7 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Classic 9×9 puzzle',
+                        'Classic Sudoku',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.3,
@@ -93,10 +98,10 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        'Fill the grid so each row, column, and 3×3 box contains '
-                        'the digits 1–9 with no repeats. Your time is tracked until '
-                        'you solve the puzzle.',
+              Text(
+                'Square sizes from 4×4 up to 16×16 use the same engine as classic '
+                '9×9; 6×6 is a quick mini Sudoku with 2×3 blocks and digits 1–6. '
+                'Each row, column, and box must contain every digit exactly once.',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           height: 1.45,
                           color: colorScheme.onSurfaceVariant,
@@ -108,6 +113,93 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                 ),
               ),
               const SizedBox(height: 28),
+              Text(
+                'Grid size',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 10),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: SudokuBoardSize.values.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 2.65,
+                ),
+                itemBuilder: (context, i) {
+                  final s = SudokuBoardSize.values[i];
+                  final selected = _boardSize == s;
+                  return Tooltip(
+                    message: s.subtitle,
+                    child: Material(
+                      color: selected
+                          ? colorScheme.secondaryContainer
+                          : colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.55),
+                      surfaceTintColor: colorScheme.primary
+                          .withValues(alpha: selected ? 0.12 : 0.06),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(
+                          color: selected
+                              ? colorScheme.secondary
+                              : colorScheme.outlineVariant
+                                  .withValues(alpha: 0.75),
+                          width: selected ? 2 : 1,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => setState(() => _boardSize = s),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.grid_view_rounded,
+                                size: 22,
+                                color: selected
+                                    ? colorScheme.onSecondaryContainer
+                                    : colorScheme.primary,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  s.label,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: selected
+                                        ? colorScheme.onSecondaryContainer
+                                        : colorScheme.onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _boardSize.subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
               Text(
                 'Difficulty',
                 style: theme.textTheme.titleSmall?.copyWith(

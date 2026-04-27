@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Digits 1–9 plus erase and hint. [activeDigit] mirrors grid highlight.
-/// Digits listed in [digitsFullyPlaced] are omitted (space kept for layout).
+/// Digit keys for the current grid size, plus erase and hint.
+/// [digitsFullyPlaced] digits are hidden but layout slots are kept.
 class NumberPad extends StatelessWidget {
   const NumberPad({
     super.key,
+    required this.maxDigit,
     required this.onDigit,
     required this.onErase,
     required this.onHint,
@@ -13,6 +14,7 @@ class NumberPad extends StatelessWidget {
     this.digitsFullyPlaced = const <int>{},
   });
 
+  final int maxDigit;
   final void Function(int digit) onDigit;
   final VoidCallback onErase;
   final VoidCallback onHint;
@@ -22,10 +24,52 @@ class NumberPad extends StatelessWidget {
 
   static const double _slotHeight = 56;
 
+  static List<List<int>> _digitRows(int max) {
+    if (max == 6) {
+      return [
+        [1, 2, 3],
+        [4, 5, 6],
+      ];
+    }
+    if (max <= 4) {
+      return [List.generate(max, (i) => i + 1)];
+    }
+    if (max == 9) {
+      return [
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9],
+      ];
+    }
+    if (max == 16) {
+      return List.generate(
+        4,
+        (r) => List.generate(4, (c) => r * 4 + c + 1),
+      );
+    }
+    final perRow = max <= 12 ? 6 : 5;
+    final rows = <List<int>>[];
+    var n = 1;
+    while (n <= max) {
+      final chunk = <int>[];
+      for (var i = 0; i < perRow && n <= max; i++) {
+        chunk.add(n);
+        n++;
+      }
+      rows.add(chunk);
+    }
+    return rows;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final rows = _digitRows(maxDigit);
+    final fontSize = maxDigit <= 9
+        ? 18.0
+        : maxDigit <= 16
+            ? 14.0
+            : 12.0;
 
     Widget digitButton(int n) {
       final hidden = digitsFullyPlaced.contains(n);
@@ -53,8 +97,8 @@ class NumberPad extends StatelessWidget {
                   ),
                   child: Text(
                     '$n',
-                    style: const TextStyle(
-                      fontSize: 18,
+                    style: TextStyle(
+                      fontSize: fontSize,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -71,8 +115,8 @@ class NumberPad extends StatelessWidget {
                   ),
                   child: Text(
                     '$n',
-                    style: const TextStyle(
-                      fontSize: 18,
+                    style: TextStyle(
+                      fontSize: fontSize,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -98,7 +142,7 @@ class NumberPad extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Numbers',
+              'Numbers (1–$maxDigit)',
               textAlign: TextAlign.center,
               style: theme.textTheme.labelLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
@@ -107,16 +151,10 @@ class NumberPad extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                for (int n = 1; n <= 5; n++) digitButton(n),
-              ],
-            ),
-            Row(
-              children: [
-                for (int n = 6; n <= 9; n++) digitButton(n),
-              ],
-            ),
+            for (final row in rows)
+              Row(
+                children: [for (final n in row) digitButton(n)],
+              ),
             const SizedBox(height: 10),
             Row(
               children: [

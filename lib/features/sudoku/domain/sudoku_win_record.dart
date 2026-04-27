@@ -10,6 +10,7 @@ class SudokuWinRecord {
     required this.mistakes,
     required this.hintsUsed,
     this.outcomeKey = 'win',
+    this.dimension = 9,
   });
 
   final String id;
@@ -18,6 +19,9 @@ class SudokuWinRecord {
   final String difficultyKey;
   final int mistakes;
   final int hintsUsed;
+
+  /// Grid edge length (4, 6, 9, or 16). Legacy JSON defaults to 9.
+  final int dimension;
 
   /// `'win'` or `'lost'` (legacy JSON omits this → win).
   final String outcomeKey;
@@ -42,6 +46,7 @@ class SudokuWinRecord {
         'mistakes': mistakes,
         'hintsUsed': hintsUsed,
         'outcomeKey': outcomeKey,
+        'dimension': dimension,
       };
 
   factory SudokuWinRecord.fromJson(Map<String, dynamic> json) {
@@ -53,6 +58,7 @@ class SudokuWinRecord {
       mistakes: json['mistakes'] as int,
       hintsUsed: (json['hintsUsed'] as num?)?.toInt() ?? 0,
       outcomeKey: json['outcomeKey'] as String? ?? 'win',
+      dimension: (json['dimension'] as num?)?.toInt() ?? 9,
     );
   }
 
@@ -61,6 +67,7 @@ class SudokuWinRecord {
     required Duration elapsed,
     required int mistakes,
     required int hintsUsed,
+    required int dimension,
   }) {
     final now = DateTime.now();
     return SudokuWinRecord(
@@ -71,6 +78,7 @@ class SudokuWinRecord {
       mistakes: mistakes,
       hintsUsed: hintsUsed,
       outcomeKey: 'win',
+      dimension: dimension,
     );
   }
 
@@ -79,6 +87,7 @@ class SudokuWinRecord {
     required Duration elapsed,
     required int mistakes,
     required int hintsUsed,
+    required int dimension,
   }) {
     final now = DateTime.now();
     return SudokuWinRecord(
@@ -89,6 +98,7 @@ class SudokuWinRecord {
       mistakes: mistakes,
       hintsUsed: hintsUsed,
       outcomeKey: 'lost',
+      dimension: dimension,
     );
   }
 
