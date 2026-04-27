@@ -13,10 +13,8 @@ enum SudokuGameOutcome { won, lost }
 
 /// Orchestrates puzzle generation, play state, mistakes, hints, and timing.
 class SudokuGameController extends ChangeNotifier {
-  SudokuGameController({
-    this.maxMistakes = 3,
-    SudokuBoardSize? boardSize,
-  }) : _boardSize = boardSize ?? SudokuBoardSize.dim9;
+  SudokuGameController({this.maxMistakes = 3, SudokuBoardSize? boardSize})
+    : _boardSize = boardSize ?? SudokuBoardSize.dim9;
 
   final int maxMistakes;
   final SudokuBoardSize _boardSize;
@@ -38,6 +36,12 @@ class SudokuGameController extends ChangeNotifier {
 
   Stopwatch? _gameClock;
   Timer? _tickTimer;
+
+  /// Updated every second while the clock runs so the time stat can repaint
+  /// without rebuilding the whole board (important for 16×16).
+  final ValueNotifier<String> elapsedLabelNotifier = ValueNotifier<String>(
+    '00:00',
+  );
 
   Board? get board => _board;
   bool get loading => _loading;
@@ -83,7 +87,7 @@ class SudokuGameController extends ChangeNotifier {
       _board != null ? _sqrtBoxSide(_board!.dimension) : _boardSize.boxCols;
 
   Duration get elapsed => _gameClock?.elapsed ?? Duration.zero;
-  String get elapsedLabel => _formatDuration(elapsed);
+  String get elapsedLabel => elapsedLabelNotifier.value;
 
   int cellAt(int row, int col) {
     final b = _board;
@@ -194,6 +198,7 @@ class SudokuGameController extends ChangeNotifier {
     _board = null;
     _six = null;
     _solutionValues = null;
+    elapsedLabelNotifier.value = '00:00';
     notifyListeners();
 
     try {
@@ -201,8 +206,9 @@ class SudokuGameController extends ChangeNotifier {
         final bundle = SudokuSixBundle.generate(_difficulty);
         if (genId != _genToken) return;
         _six = bundle;
-        _solutionValues =
-            bundle.solution.map((r) => List<int>.from(r)).toList();
+        _solutionValues = bundle.solution
+            .map((r) => List<int>.from(r))
+            .toList();
         _board = null;
       } else {
         final dim = _boardSize.dimension;
@@ -421,9 +427,19 @@ class SudokuGameController extends ChangeNotifier {
     _tickTimer = null;
     _gameClock?.stop();
     _gameClock = Stopwatch()..start();
+    _pushElapsedLabel();
     _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      notifyListeners();
+      _pushElapsedLabel();
     });
+  }
+
+  void _pushElapsedLabel() {
+    final sw = _gameClock;
+    if (sw == null) return;
+    final next = _formatDuration(sw.elapsed);
+    if (elapsedLabelNotifier.value != next) {
+      elapsedLabelNotifier.value = next;
+    }
   }
 
   void pauseSolveTimer() {
@@ -433,6 +449,7 @@ class SudokuGameController extends ChangeNotifier {
     if (_gameClock!.isRunning) {
       _gameClock!.stop();
     }
+    _pushElapsedLabel();
     notifyListeners();
   }
 
@@ -446,8 +463,9 @@ class SudokuGameController extends ChangeNotifier {
     _gameClock!.start();
     _tickTimer?.cancel();
     _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      notifyListeners();
+      _pushElapsedLabel();
     });
+    _pushElapsedLabel();
     notifyListeners();
   }
 
@@ -455,6 +473,7 @@ class SudokuGameController extends ChangeNotifier {
     _tickTimer?.cancel();
     _tickTimer = null;
     _gameClock?.stop();
+    _pushElapsedLabel();
   }
 
   static String _formatDuration(Duration d) {
@@ -473,6 +492,7 @@ class SudokuGameController extends ChangeNotifier {
   void dispose() {
     _genToken++;
     _tickTimer?.cancel();
+    elapsedLabelNotifier.dispose();
     super.dispose();
   }
 }

@@ -14,6 +14,7 @@ import '../widgets/how_to_play.dart';
 import '../widgets/mistake_and_game_over_dialogs.dart';
 import '../widgets/number_pad.dart';
 import '../widgets/sudoku_grid.dart';
+
 class SudokuGamePage extends StatefulWidget {
   const SudokuGamePage({
     super.key,
@@ -131,13 +132,15 @@ class _SudokuGamePageState extends State<SudokuGamePage>
 
   void _requestNewPuzzle() {
     setState(() => _userPaused = false);
-    unawaited(_controller.startNewGame().then((_) {
-      if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _syncClockToPauseState();
-        });
-      }
-    }));
+    unawaited(
+      _controller.startNewGame().then((_) {
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _syncClockToPauseState();
+          });
+        }
+      }),
+    );
   }
 
   void _onController() {
@@ -153,7 +156,8 @@ class _SudokuGamePageState extends State<SudokuGamePage>
           }
         }
       });
-    } else if (_controller.pendingMistakeAck != null && !_mistakeDialogScheduled) {
+    } else if (_controller.pendingMistakeAck != null &&
+        !_mistakeDialogScheduled) {
       _mistakeDialogScheduled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         try {
@@ -215,11 +219,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: Icon(
-          Icons.refresh_rounded,
-          size: 36,
-          color: colorScheme.primary,
-        ),
+        icon: Icon(Icons.refresh_rounded, size: 36, color: colorScheme.primary),
         title: const Text('New game?'),
         content: const Text(
           'Are you sure you want a new game? Your current puzzle progress will '
@@ -272,13 +272,15 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         onNewGame: () {
           if (!mounted) return;
           setState(() => _userPaused = false);
-          unawaited(_controller.startNewGame().then((_) {
-            if (mounted) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _syncClockToPauseState();
-              });
-            }
-          }));
+          unawaited(
+            _controller.startNewGame().then((_) {
+              if (mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _syncClockToPauseState();
+                });
+              }
+            }),
+          );
         },
         onHome: () {
           if (!mounted) return;
@@ -311,13 +313,15 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         onNewGame: () {
           if (!mounted) return;
           setState(() => _userPaused = false);
-          unawaited(_controller.startNewGame().then((_) {
-            if (mounted) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _syncClockToPauseState();
-              });
-            }
-          }));
+          unawaited(
+            _controller.startNewGame().then((_) {
+              if (mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _syncClockToPauseState();
+                });
+              }
+            }),
+          );
         },
         onHome: () {
           if (!mounted) return;
@@ -394,8 +398,9 @@ class _SudokuGamePageState extends State<SudokuGamePage>
             else
               IconButton(
                 tooltip: 'Pause',
-                onPressed:
-                    _canUsePauseControl ? () => _setUserPaused(true) : null,
+                onPressed: _canUsePauseControl
+                    ? () => _setUserPaused(true)
+                    : null,
                 icon: const Icon(Icons.pause_rounded),
               ),
             IconButton(
@@ -416,14 +421,19 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                     Row(
                       children: [
                         Expanded(
-                          child: _GameStatCard(
-                            icon: Icons.timer_outlined,
-                            label: 'Time',
-                            value: _controller.elapsedLabel,
-                            colorScheme: colorScheme,
-                            theme: theme,
-                            accent: colorScheme.primaryContainer,
-                            onAccent: colorScheme.onPrimaryContainer,
+                          child: ValueListenableBuilder<String>(
+                            valueListenable: _controller.elapsedLabelNotifier,
+                            builder: (context, timeLabel, _) {
+                              return _GameStatCard(
+                                icon: Icons.timer_outlined,
+                                label: 'Time',
+                                value: timeLabel,
+                                colorScheme: colorScheme,
+                                theme: theme,
+                                accent: colorScheme.primaryContainer,
+                                onAccent: colorScheme.onPrimaryContainer,
+                              );
+                            },
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -544,8 +554,8 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                             Text(
                               widget.boardSize.dimension >= 16
                                   ? 'Working in the background. 16×16 can take up '
-                                      'to a couple of minutes—this screen stays '
-                                      'responsive.'
+                                        'to a couple of minutes—this screen stays '
+                                        'responsive.'
                                   : 'Finding a unique ${widget.boardSize.label} grid for you',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -658,8 +668,8 @@ class _PausePlaceholder extends StatelessWidget {
     final message = !userPaused && ambientPaused
         ? 'Timer is paused while you are away. Your puzzle will reappear when you return.'
         : userPaused && !ambientPaused
-            ? 'Timer is paused. Tap Resume when you are ready to continue.'
-            : 'Timer is paused. Come back to the game or tap Resume to continue.';
+        ? 'Timer is paused. Tap Resume when you are ready to continue.'
+        : 'Timer is paused. Come back to the game or tap Resume to continue.';
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 280),
