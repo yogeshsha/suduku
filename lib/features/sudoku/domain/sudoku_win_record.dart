@@ -1,6 +1,6 @@
 import 'game_difficulty.dart';
 
-/// A stored successful solve for history / stats.
+/// A stored finished game (win or loss) for local history.
 class SudokuWinRecord {
   const SudokuWinRecord({
     required this.id,
@@ -9,6 +9,7 @@ class SudokuWinRecord {
     required this.difficultyKey,
     required this.mistakes,
     required this.hintsUsed,
+    this.outcomeKey = 'win',
   });
 
   final String id;
@@ -17,6 +18,12 @@ class SudokuWinRecord {
   final String difficultyKey;
   final int mistakes;
   final int hintsUsed;
+
+  /// `'win'` or `'lost'` (legacy JSON omits this → win).
+  final String outcomeKey;
+
+  bool get isWin => outcomeKey == 'win';
+  bool get isLost => outcomeKey == 'lost';
 
   GameDifficulty get difficulty => gameDifficultyFromName(difficultyKey);
 
@@ -34,6 +41,7 @@ class SudokuWinRecord {
         'difficultyKey': difficultyKey,
         'mistakes': mistakes,
         'hintsUsed': hintsUsed,
+        'outcomeKey': outcomeKey,
       };
 
   factory SudokuWinRecord.fromJson(Map<String, dynamic> json) {
@@ -44,6 +52,7 @@ class SudokuWinRecord {
       difficultyKey: json['difficultyKey'] as String,
       mistakes: json['mistakes'] as int,
       hintsUsed: (json['hintsUsed'] as num?)?.toInt() ?? 0,
+      outcomeKey: json['outcomeKey'] as String? ?? 'win',
     );
   }
 
@@ -61,6 +70,25 @@ class SudokuWinRecord {
       difficultyKey: difficulty.name,
       mistakes: mistakes,
       hintsUsed: hintsUsed,
+      outcomeKey: 'win',
+    );
+  }
+
+  factory SudokuWinRecord.captureLoss({
+    required GameDifficulty difficulty,
+    required Duration elapsed,
+    required int mistakes,
+    required int hintsUsed,
+  }) {
+    final now = DateTime.now();
+    return SudokuWinRecord(
+      id: '${now.millisecondsSinceEpoch}_${now.microsecondsSinceEpoch}',
+      completedAtEpochMs: now.millisecondsSinceEpoch,
+      durationMs: elapsed.inMilliseconds,
+      difficultyKey: difficulty.name,
+      mistakes: mistakes,
+      hintsUsed: hintsUsed,
+      outcomeKey: 'lost',
     );
   }
 

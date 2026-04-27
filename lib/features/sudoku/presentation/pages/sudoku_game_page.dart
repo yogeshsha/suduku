@@ -8,6 +8,7 @@ import '../../domain/game_difficulty.dart';
 import '../../domain/sudoku_win_record.dart';
 import '../widgets/animated_success_dialog.dart';
 import '../widgets/how_to_play.dart';
+import '../widgets/mistake_and_game_over_dialogs.dart';
 import '../widgets/number_pad.dart';
 import '../widgets/sudoku_grid.dart';
 import 'sudoku_history_page.dart';
@@ -28,6 +29,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
     with RouteAware, WidgetsBindingObserver {
   late final SudokuGameController _controller = SudokuGameController();
   bool _outcomeDialogScheduled = false;
+  bool _mistakeDialogScheduled = false;
 
   bool _userPaused = false;
   bool _routeCovered = false;
@@ -138,6 +140,26 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         } finally {
           if (mounted) {
             _outcomeDialogScheduled = false;
+          }
+        }
+      });
+    } else if (_controller.pendingMistakeAck != null && !_mistakeDialogScheduled) {
+      _mistakeDialogScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          if (!mounted) return;
+          if (_controller.pendingMistakeAck == null) return;
+          final mistakes = _controller.mistakes;
+          final maxMistakes = _controller.maxMistakes;
+          _controller.consumeMistakeAck();
+          await showMistakeFeedbackDialog(
+            context: context,
+            mistakes: mistakes,
+            maxMistakes: maxMistakes,
+          );
+        } finally {
+          if (mounted) {
+            _mistakeDialogScheduled = false;
           }
         }
       });
@@ -255,26 +277,37 @@ class _SudokuGamePageState extends State<SudokuGamePage>
       );
     } else {
       final time = _controller.elapsedLabel;
-      final msg = 'Too many invalid moves. Time on puzzle: $time.';
+      final lossRecord = SudokuWinRecord.captureLoss(
+        difficulty: _controller.difficulty,
+        elapsed: _controller.elapsed,
+        mistakes: _controller.mistakes,
+        hintsUsed: _controller.hintsUsed,
+      );
+      try {
+        final repo = await WinHistoryRepository.instance();
+        await repo.addRecord(lossRecord);
+      } catch (_) {
+        // Persistence is best-effort.
+      }
       if (!mounted) return;
-      await showGeneralDialog<void>(
+      await showGameOverDialog(
         context: context,
-        barrierDismissible: true,
-        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-        transitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (ctx, animation, secondaryAnimation) => AlertDialog(
-          title: const Text('Game over'),
-          content: Text(msg),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-        transitionBuilder: (ctx, anim, _, child) {
-          final curved = CurvedAnimation(parent: anim, curve: Curves.easeOut);
-          return FadeTransition(opacity: curved, child: child);
+        timeLabel: time,
+        difficulty: _controller.difficulty,
+        mistakes: _controller.mistakes,
+        maxMistakes: _controller.maxMistakes,
+        hintsUsed: _controller.hintsUsed,
+        onNewGame: () {
+          if (!mounted) return;
+          setState(() => _userPaused = false);
+          _controller.startNewGame();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _syncClockToPauseState();
+          });
+        },
+        onHome: () {
+          if (!mounted) return;
+          Navigator.of(context).pop();
         },
       );
     }

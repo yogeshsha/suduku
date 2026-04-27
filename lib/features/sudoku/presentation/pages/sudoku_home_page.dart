@@ -153,8 +153,8 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                 onPressed: () {
                   Navigator.of(context).push<void>(SudokuHistoryPage.route());
                 },
-                icon: const Icon(Icons.emoji_events_outlined),
-                label: const Text('Success history'),
+                icon: const Icon(Icons.history_rounded),
+                label: const Text('History'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(

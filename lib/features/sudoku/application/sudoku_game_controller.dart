@@ -25,6 +25,9 @@ class SudokuGameController extends ChangeNotifier {
   GameDifficulty _difficulty = GameDifficulty.medium;
   SudokuGameOutcome? _pendingOutcome;
 
+  /// Set after a wrong digit when the game is still playable; UI shows feedback then calls [consumeMistakeAck].
+  int? _pendingMistakeAck;
+
   /// Digit 1–9 to emphasize across the grid (from cell or number pad).
   int? _highlightDigit;
 
@@ -40,6 +43,7 @@ class SudokuGameController extends ChangeNotifier {
   int? get selectedCol => _selectedCol;
   GameDifficulty get difficulty => _difficulty;
   SudokuGameOutcome? get pendingOutcome => _pendingOutcome;
+  int? get pendingMistakeAck => _pendingMistakeAck;
   int? get highlightDigit => _highlightDigit;
 
   /// Elapsed time since the current puzzle became playable (loading finished).
@@ -77,6 +81,12 @@ class SudokuGameController extends ChangeNotifier {
 
   void consumeOutcome() {
     _pendingOutcome = null;
+    notifyListeners();
+  }
+
+  void consumeMistakeAck() {
+    if (_pendingMistakeAck == null) return;
+    _pendingMistakeAck = null;
     notifyListeners();
   }
 
@@ -118,6 +128,7 @@ class SudokuGameController extends ChangeNotifier {
     _loading = true;
     _error = null;
     _pendingOutcome = null;
+    _pendingMistakeAck = null;
     _mistakes = 0;
     _hintsUsed = 0;
     _selectedRow = null;
@@ -176,6 +187,8 @@ class SudokuGameController extends ChangeNotifier {
       if (_mistakes >= maxMistakes) {
         _stopClockForTerminalState();
         _pendingOutcome = SudokuGameOutcome.lost;
+      } else {
+        _pendingMistakeAck = _mistakes;
       }
       notifyListeners();
       return;

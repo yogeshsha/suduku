@@ -68,7 +68,7 @@ class AnimatedSuccessDialog extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Your result was saved. View past wins from Success history on the home screen.',
+            'Your result was saved. Open History on the home screen to review past games.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),

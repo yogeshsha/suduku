@@ -22,6 +22,6 @@ void main() {
     expect(find.text('Easy'), findsOneWidget);
     expect(find.text('Medium'), findsOneWidget);
     expect(find.text('Expert'), findsOneWidget);
-    expect(find.text('Success history'), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
   });
 }

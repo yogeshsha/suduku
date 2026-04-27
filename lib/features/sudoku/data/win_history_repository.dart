@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/sudoku_win_record.dart';
 
-/// Persists successful solves locally (newest first, capped).
+/// Persists finished games (wins and losses) locally (newest first, capped).
 class WinHistoryRepository {
   WinHistoryRepository._(this._prefs);
 
@@ -37,7 +37,7 @@ class WinHistoryRepository {
 
   Future<List<SudokuWinRecord>> readAll() async => readAllSync();
 
-  Future<void> addWin(SudokuWinRecord record) async {
+  Future<void> addRecord(SudokuWinRecord record) async {
     final current = readAllSync();
     final next = [record, ...current];
     final capped =
@@ -45,6 +45,23 @@ class WinHistoryRepository {
     await _prefs.setString(
       _storageKey,
       jsonEncode(capped.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  /// Saves a successful solve (same as [addRecord]).
+  Future<void> addWin(SudokuWinRecord record) => addRecord(record);
+
+  Future<void> deleteById(String id) async {
+    final current = readAllSync();
+    final next = current.where((e) => e.id != id).toList();
+    if (next.length == current.length) return;
+    if (next.isEmpty) {
+      await _prefs.remove(_storageKey);
+      return;
+    }
+    await _prefs.setString(
+      _storageKey,
+      jsonEncode(next.map((e) => e.toJson()).toList()),
     );
   }
 
