@@ -43,9 +43,7 @@ ThemeData _baseTheme(ColorScheme scheme, Brightness brightness) {
     cardTheme: CardThemeData(
       elevation: 0,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: scheme.surface,
     ),
     dialogTheme: DialogThemeData(

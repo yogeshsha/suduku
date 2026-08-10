@@ -22,10 +22,8 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
   void _openGame() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (context) => SudokuGamePage(
-          difficulty: _difficulty,
-          boardSize: _boardSize,
-        ),
+        builder: (context) =>
+            SudokuGamePage(difficulty: _difficulty, boardSize: _boardSize),
       ),
     );
   }
@@ -40,7 +38,9 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
       appBar: AppBar(
         title: Text(
           'Sudoku',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
         ),
         actions: [
           IconButton(
@@ -72,36 +72,41 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                   padding: const EdgeInsets.fromLTRB(22, 26, 22, 26),
                   child: Column(
                     children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colorScheme.primaryContainer.withValues(
-                            alpha: 0.65,
+                      Row(
+                        children: [
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colorScheme.primaryContainer.withValues(
+                                alpha: 0.65,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Icon(
+                                Icons.grid_4x4_rounded,
+                                size: 40,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Icon(
-                            Icons.grid_4x4_rounded,
-                            size: 40,
-                            color: colorScheme.onPrimaryContainer,
+                          const SizedBox(width: 5),
+                          Text(
+                            'Classic\nSudoku',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 18),
+
+                      const SizedBox(height: 10),
                       Text(
-                        'Classic Sudoku',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-              Text(
-                'Square sizes from 4×4 up to 16×16 use the same engine as classic '
-                '9×9; 6×6 is a quick mini Sudoku with 2×3 blocks and digits 1–6. '
-                'Each row, column, and box must contain every digit exactly once.',
+                        '4×4 and 9×9 use the fludoku engine; 6×6 is mini Sudoku (2×3 blocks, '
+                        'digits 1–6); 12×12 uses 3×4 blocks and digits 1–12. Each row, '
+                        'column, and box must contain every digit exactly once.',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           height: 1.45,
                           color: colorScheme.onSurfaceVariant,
@@ -139,17 +144,20 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                     child: Material(
                       color: selected
                           ? colorScheme.secondaryContainer
-                          : colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.55),
-                      surfaceTintColor: colorScheme.primary
-                          .withValues(alpha: selected ? 0.12 : 0.06),
+                          : colorScheme.surfaceContainerHighest.withValues(
+                              alpha: 0.55,
+                            ),
+                      surfaceTintColor: colorScheme.primary.withValues(
+                        alpha: selected ? 0.12 : 0.06,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                         side: BorderSide(
                           color: selected
                               ? colorScheme.secondary
-                              : colorScheme.outlineVariant
-                                  .withValues(alpha: 0.75),
+                              : colorScheme.outlineVariant.withValues(
+                                  alpha: 0.75,
+                                ),
                           width: selected ? 2 : 1,
                         ),
                       ),
@@ -219,7 +227,8 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                     )
                     .toList(),
                 selected: {_difficulty},
-                onSelectionChanged: (s) => setState(() => _difficulty = s.first),
+                onSelectionChanged: (s) =>
+                    setState(() => _difficulty = s.first),
               ),
               const SizedBox(height: 8),
               Text(

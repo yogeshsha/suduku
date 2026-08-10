@@ -65,95 +65,99 @@ class SudokuGrid extends StatelessWidget {
         padding: const EdgeInsets.all(4),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: dimension,
-            ),
-            itemCount: dimension * dimension,
-            itemBuilder: (context, index) {
-              final row = index ~/ dimension;
-              final col = index % dimension;
-              final value = valueAt(row, col);
-              final given = isGiven(row, col);
-              final selected = selectedRow == row && selectedCol == col;
-              final sameBox = _sameBox(
-                row,
-                col,
-                selectedRow,
-                selectedCol,
-                boxRows,
-                boxCols,
-              );
-              final sameLine = selectedRow == row || selectedCol == col;
-              final sameDigit = highlightDigit != null &&
-                  value != 0 &&
-                  value == highlightDigit;
+          child: RepaintBoundary(
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              addAutomaticKeepAlives: false,
+              addRepaintBoundaries: true,
+              cacheExtent: 0,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: dimension,
+              ),
+              itemCount: dimension * dimension,
+              itemBuilder: (context, index) {
+                final row = index ~/ dimension;
+                final col = index % dimension;
+                final value = valueAt(row, col);
+                final given = isGiven(row, col);
+                final selected = selectedRow == row && selectedCol == col;
+                final sameBox = _sameBox(
+                  row,
+                  col,
+                  selectedRow,
+                  selectedCol,
+                  boxRows,
+                  boxCols,
+                );
+                final sameLine = selectedRow == row || selectedCol == col;
+                final sameDigit =
+                    highlightDigit != null &&
+                    value != 0 &&
+                    value == highlightDigit;
 
-              final thickRight =
-                  (col + 1) % boxCols == 0 && col < dimension - 1;
-              final thickBottom =
-                  (row + 1) % boxRows == 0 && row < dimension - 1;
+                final thickRight =
+                    (col + 1) % boxCols == 0 && col < dimension - 1;
+                final thickBottom =
+                    (row + 1) % boxRows == 0 && row < dimension - 1;
 
-              Color bg;
-              if (selected) {
-                bg = colorScheme.primaryContainer;
-              } else if (sameDigit) {
-                bg = colorScheme.secondaryContainer.withValues(alpha: 0.85);
-              } else if (sameBox || sameLine) {
-                bg = colorScheme.surfaceContainerHigh.withValues(alpha: 0.65);
-              } else {
-                bg = colorScheme.surface;
-              }
+                Color bg;
+                if (selected) {
+                  bg = colorScheme.primaryContainer;
+                } else if (sameDigit) {
+                  bg = colorScheme.secondaryContainer.withValues(alpha: 0.85);
+                } else if (sameBox || sameLine) {
+                  bg = colorScheme.surfaceContainerHigh.withValues(alpha: 0.65);
+                } else {
+                  bg = colorScheme.surface;
+                }
 
-              final textColor = sameDigit && !selected
-                  ? colorScheme.onSecondaryContainer
-                  : (given
-                      ? colorScheme.onSurface
-                      : colorScheme.primary);
+                final textColor = sameDigit && !selected
+                    ? colorScheme.onSecondaryContainer
+                    : (given ? colorScheme.onSurface : colorScheme.primary);
 
-              return Material(
-                color: bg,
-                child: InkWell(
-                  onTap: () => onCellTap(row, col),
-                  child: Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 1),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        right: BorderSide(
-                          width: thickRight ? 2.5 : 0.6,
-                          color: thickRight
-                              ? colorScheme.outline
-                              : colorScheme.outlineVariant,
-                        ),
-                        bottom: BorderSide(
-                          width: thickBottom ? 2.5 : 0.6,
-                          color: thickBottom
-                              ? colorScheme.outline
-                              : colorScheme.outlineVariant,
+                return Material(
+                  color: bg,
+                  child: InkWell(
+                    onTap: () => onCellTap(row, col),
+                    child: Container(
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 1),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          right: BorderSide(
+                            width: thickRight ? 2.5 : 0.6,
+                            color: thickRight
+                                ? colorScheme.outline
+                                : colorScheme.outlineVariant,
+                          ),
+                          bottom: BorderSide(
+                            width: thickBottom ? 2.5 : 0.6,
+                            color: thickBottom
+                                ? colorScheme.outline
+                                : colorScheme.outlineVariant,
+                          ),
                         ),
                       ),
-                    ),
-                    child: value == 0
-                        ? const SizedBox.shrink()
-                        : FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              '$value',
-                              maxLines: 1,
-                              style: digitStyle()?.copyWith(
-                                fontWeight: given
-                                    ? FontWeight.w800
-                                    : FontWeight.w700,
-                                color: textColor,
+                      child: value == 0
+                          ? const SizedBox.shrink()
+                          : FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '$value',
+                                maxLines: 1,
+                                style: digitStyle()?.copyWith(
+                                  fontWeight: given
+                                      ? FontWeight.w800
+                                      : FontWeight.w700,
+                                  color: textColor,
+                                ),
                               ),
                             ),
-                          ),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

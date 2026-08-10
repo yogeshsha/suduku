@@ -35,10 +35,10 @@ class ThemeSettings extends ChangeNotifier {
   }
 
   static String _encode(ThemeMode mode) => switch (mode) {
-        ThemeMode.light => 'light',
-        ThemeMode.dark => 'dark',
-        ThemeMode.system => 'system',
-      };
+    ThemeMode.light => 'light',
+    ThemeMode.dark => 'dark',
+    ThemeMode.system => 'system',
+  };
 }
 
 /// Injected via [MaterialApp.builder] so every route can read [ThemeSettings].
@@ -50,8 +50,8 @@ class InheritedThemeSettings extends InheritedNotifier<ThemeSettings> {
   });
 
   static ThemeSettings of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<InheritedThemeSettings>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<InheritedThemeSettings>();
     assert(scope != null, 'InheritedThemeSettings not found');
     return scope!.notifier!;
   }

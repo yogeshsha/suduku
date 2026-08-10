@@ -28,7 +28,10 @@ class WinHistoryRepository {
     try {
       final list = jsonDecode(raw) as List<dynamic>;
       return list
-          .map((e) => SudokuWinRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) =>
+                SudokuWinRecord.fromJson(Map<String, dynamic>.from(e as Map)),
+          )
           .toList();
     } catch (_) {
       return [];
@@ -40,8 +43,9 @@ class WinHistoryRepository {
   Future<void> addRecord(SudokuWinRecord record) async {
     final current = readAllSync();
     final next = [record, ...current];
-    final capped =
-        next.length > _maxRecords ? next.sublist(0, _maxRecords) : next;
+    final capped = next.length > _maxRecords
+        ? next.sublist(0, _maxRecords)
+        : next;
     await _prefs.setString(
       _storageKey,
       jsonEncode(capped.map((e) => e.toJson()).toList()),

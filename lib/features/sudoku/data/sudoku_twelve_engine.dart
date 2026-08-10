@@ -2,24 +2,19 @@ import 'dart:math';
 
 import '../domain/game_difficulty.dart';
 
-/// 6×6 Sudoku with **2×3** blocks (standard mini Sudoku). Digits 1–6.
-class SudokuSixBundle {
-  SudokuSixBundle._(this.grid, this.solution, this.readOnlyKeys);
+/// 12×12 Sudoku with **3×4** blocks (standard). Digits 1–12.
+class SudokuTwelveBundle {
+  SudokuTwelveBundle._(this.grid, this.solution, this.readOnlyKeys);
 
-  /// Play grid (mutable).
   final List<List<int>> grid;
-
-  /// Full valid solution.
   final List<List<int>> solution;
-
-  /// `"row,col"` for givens from the initial puzzle.
   final Set<String> readOnlyKeys;
 
-  static const dimension = 6;
-  static const boxRows = 2;
-  static const boxCols = 3;
+  static const dimension = 12;
+  static const boxRows = 3;
+  static const boxCols = 4;
 
-  factory SudokuSixBundle.create(
+  factory SudokuTwelveBundle.create(
     List<List<int>> puzzle,
     List<List<int>> solution,
   ) {
@@ -31,7 +26,7 @@ class SudokuSixBundle {
         }
       }
     }
-    return SudokuSixBundle._(
+    return SudokuTwelveBundle._(
       puzzle.map((row) => List<int>.from(row)).toList(),
       solution.map((row) => List<int>.from(row)).toList(),
       keys,
@@ -54,7 +49,6 @@ class SudokuSixBundle {
     return true;
   }
 
-  /// No blanks and no duplicate violations in rows, columns, or 2×3 blocks.
   static bool gridSolvedAndValid(List<List<int>> g) {
     for (var r = 0; r < dimension; r++) {
       for (var c = 0; c < dimension; c++) {
@@ -153,14 +147,15 @@ class SudokuSixBundle {
     return n;
   }
 
+  /// Same clue *fractions* as 6×6 engine (30/36, 24/36, 18/36 of cells filled).
   static int _targetClues(GameDifficulty d) => switch (d) {
-    GameDifficulty.easy => 30,
-    GameDifficulty.medium => 24,
-    GameDifficulty.expert => 18,
+    GameDifficulty.easy => 120,
+    GameDifficulty.medium => 96,
+    GameDifficulty.expert => 72,
   };
 
-  /// Builds a puzzle with a unique solution (fast on 6×6).
-  static SudokuSixBundle generate(GameDifficulty difficulty) {
+  /// Unique-solution puzzle; slower than 6×6 but fast vs fludoku 16×16.
+  static SudokuTwelveBundle generate(GameDifficulty difficulty) {
     final rnd = Random();
     List<List<int>>? solution;
     for (var attempt = 0; attempt < 100; attempt++) {
@@ -168,7 +163,7 @@ class SudokuSixBundle {
       if (solution != null) break;
     }
     if (solution == null) {
-      throw StateError('6×6 solution generation failed');
+      throw StateError('12×12 solution generation failed');
     }
 
     var puzzle = solution.map((row) => List<int>.from(row)).toList();
@@ -188,6 +183,6 @@ class SudokuSixBundle {
         puzzle[r][c] = keep;
       }
     }
-    return SudokuSixBundle.create(puzzle, solution);
+    return SudokuTwelveBundle.create(puzzle, solution);
   }
 }

@@ -32,11 +32,7 @@ class MistakeFeedbackDialog extends StatelessWidget {
         tween: Tween(begin: 0.92, end: 1),
         duration: const Duration(milliseconds: 480),
         curve: Curves.elasticOut,
-        child: Icon(
-          Icons.grid_off_rounded,
-          size: 48,
-          color: colorScheme.error,
-        ),
+        child: Icon(Icons.grid_off_rounded, size: 48, color: colorScheme.error),
         builder: (context, scale, child) {
           return Transform.scale(scale: scale, child: child);
         },
@@ -75,7 +71,9 @@ class MistakeFeedbackDialog extends StatelessWidget {
                   Text(
                     detail,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onErrorContainer.withValues(alpha: 0.92),
+                      color: colorScheme.onErrorContainer.withValues(
+                        alpha: 0.92,
+                      ),
                       height: 1.35,
                     ),
                   ),

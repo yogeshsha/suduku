@@ -95,7 +95,7 @@ Future<void> showHowToPlay(BuildContext context) {
                 _Section(
                   title: 'Grid size & difficulty',
                   body:
-                      'Pick a grid size on the home screen (4×4 up to 16×16, '
+                      'Pick a grid size on the home screen (4×4 up to 12×12, '
                       'plus 6×6 mini). '
                       'Easy leaves more clues; Expert leaves fewer. Each puzzle '
                       'has one unique solution.',
