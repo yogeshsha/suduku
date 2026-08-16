@@ -10,9 +10,15 @@ import '../../domain/game_difficulty.dart';
 import '../../domain/sudoku_board_size.dart';
 import '../../domain/sudoku_win_record.dart';
 import '../widgets/animated_success_dialog.dart';
+import '../widgets/confetti_burst.dart';
+import '../widgets/fade_slide_in.dart';
 import '../widgets/how_to_play.dart';
 import '../widgets/mistake_and_game_over_dialogs.dart';
 import '../widgets/number_pad.dart';
+import '../widgets/pressable_scale.dart';
+import '../widgets/pulse_loop.dart';
+import '../widgets/shake_on_signal.dart';
+import '../widgets/signal_flash.dart';
 import '../widgets/sudoku_grid.dart';
 
 class SudokuGamePage extends StatefulWidget {
@@ -40,6 +46,22 @@ class _SudokuGamePageState extends State<SudokuGamePage>
   bool _userPaused = false;
   bool _routeCovered = false;
   bool _appBackgrounded = false;
+
+  // Motion signals. Tokens only ever increase; widgets replay their one-shot
+  // animation whenever the value they watch changes.
+  bool _expectCellEntrance = true;
+  int _errorToken = 0;
+  int _waveToken = 0;
+  int _defeatToken = 0;
+  int _confettiToken = 0;
+  int? _pulseDigit;
+  int? _pulseBoxIndex;
+  String? _celebrationMessage;
+  Timer? _celebrationTimer;
+  int _prevMistakes = 0;
+  Set<int> _prevCompletedDigits = const <int>{};
+  Set<int> _prevCompletedBoxes = const <int>{};
+  bool _wasLoading = false;
 
   bool get _ambientPaused => _routeCovered || _appBackgrounded;
 
@@ -74,6 +96,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
 
   @override
   void dispose() {
+    _celebrationTimer?.cancel();
     if (_routeAwareSubscribed) {
       appRouteObserver.unsubscribe(this);
     }
@@ -130,7 +153,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
     }
   }
 
-  void _requestNewPuzzle() {
+  void _beginNewGame() {
     setState(() => _userPaused = false);
     unawaited(
       _controller.startNewGame().then((_) {
@@ -144,9 +167,17 @@ class _SudokuGamePageState extends State<SudokuGamePage>
   }
 
   void _onController() {
+    _syncMotionSignals();
+
     final outcome = _controller.pendingOutcome;
     if (outcome != null && !_outcomeDialogScheduled) {
       _outcomeDialogScheduled = true;
+      if (outcome == SudokuGameOutcome.won) {
+        _waveToken++;
+        _confettiToken++;
+      } else {
+        _defeatToken++;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         try {
           await _showOutcome(outcome);
@@ -161,6 +192,9 @@ class _SudokuGamePageState extends State<SudokuGamePage>
       _mistakeDialogScheduled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         try {
+          if (!mounted) return;
+          // Let the invalid-move flash and shake on the board land first.
+          await Future<void>.delayed(const Duration(milliseconds: 420));
           if (!mounted) return;
           if (_controller.pendingMistakeAck == null) return;
           final mistakes = _controller.mistakes;
@@ -179,6 +213,104 @@ class _SudokuGamePageState extends State<SudokuGamePage>
       });
     }
     setState(() {});
+  }
+
+  /// Diffs controller state against the last notification and raises the
+  /// one-shot animation signals consumed by the grid, pad, and overlays.
+  void _syncMotionSignals() {
+    final loading = _controller.loading;
+    if (loading && !_wasLoading) {
+      // A fresh puzzle build started: reset progress tracking.
+      _prevMistakes = 0;
+      _prevCompletedDigits = const <int>{};
+      _prevCompletedBoxes = const <int>{};
+      _expectCellEntrance = true;
+      _pulseDigit = null;
+      _pulseBoxIndex = null;
+      _celebrationTimer?.cancel();
+      _celebrationMessage = null;
+    } else if (!loading &&
+        _wasLoading &&
+        _controller.hasPlayableGrid &&
+        _expectCellEntrance) {
+      // Cells captured the entrance flag in this build; stop offering it so a
+      // later remount (pause/resume) does not replay the cascade.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_controller.loading && _controller.hasPlayableGrid) {
+          setState(() => _expectCellEntrance = false);
+        }
+      });
+    }
+    _wasLoading = loading;
+
+    if (_controller.mistakes > _prevMistakes) {
+      _errorToken++;
+    }
+    _prevMistakes = _controller.mistakes;
+
+    final playing =
+        !_controller.loading &&
+        _controller.hasPlayableGrid &&
+        _controller.pendingOutcome == null &&
+        !_controller.isGameOver;
+    if (!playing) return;
+
+    final digits = _controller.digitsFullyPlaced;
+    final newDigits = digits.difference(_prevCompletedDigits);
+    if (newDigits.isNotEmpty) {
+      _pulseDigit = newDigits.last;
+      _showCelebrationMessage('Number $_pulseDigit complete!');
+    }
+    _prevCompletedDigits = digits;
+
+    final boxes = _completedBoxIndexes();
+    final newBoxes = boxes.difference(_prevCompletedBoxes);
+    if (newBoxes.isNotEmpty) {
+      _pulseBoxIndex = newBoxes.last;
+      _showCelebrationMessage('Box complete!');
+    }
+    _prevCompletedBoxes = boxes;
+  }
+
+  Set<int> _completedBoxIndexes() {
+    final dim = _controller.puzzleDimension;
+    final boxRows = _controller.boxRowsResolved;
+    final boxCols = _controller.boxColsResolved;
+    final boxesPerRow = dim ~/ boxCols;
+    final completed = <int>{};
+    for (var r = 0; r < dim; r += boxRows) {
+      for (var c = 0; c < dim; c += boxCols) {
+        var full = true;
+        for (var i = 0; i < boxRows && full; i++) {
+          for (var j = 0; j < boxCols; j++) {
+            if (_controller.cellAt(r + i, c + j) == 0) {
+              full = false;
+              break;
+            }
+          }
+        }
+        if (full) {
+          completed.add((r ~/ boxRows) * boxesPerRow + (c ~/ boxCols));
+        }
+      }
+    }
+    return completed;
+  }
+
+  void _showCelebrationMessage(String message) {
+    _celebrationTimer?.cancel();
+    _celebrationMessage = message;
+    _celebrationTimer = Timer(const Duration(milliseconds: 1500), () {
+      // Also retire the pulse signals so the same box or digit can celebrate
+      // again if the player empties and refills it.
+      if (mounted) {
+        setState(() {
+          _celebrationMessage = null;
+          _pulseDigit = null;
+          _pulseBoxIndex = null;
+        });
+      }
+    });
   }
 
   void _confirmExitGame() {
@@ -238,12 +370,22 @@ class _SudokuGamePageState extends State<SudokuGamePage>
       ),
     ).then((confirmed) {
       if (confirmed == true && mounted) {
-        _requestNewPuzzle();
+        _beginNewGame();
       }
     });
   }
 
   Future<void> _showOutcome(SudokuGameOutcome outcome) async {
+    if (!mounted) return;
+    if (_controller.pendingOutcome != outcome) return;
+
+    // Let the celebration (confetti + board wave) or the defeat beat (shake +
+    // vignette + desaturation) breathe before the dialog takes the stage.
+    await Future<void>.delayed(
+      outcome == SudokuGameOutcome.won
+          ? const Duration(milliseconds: 800)
+          : const Duration(milliseconds: 620),
+    );
     if (!mounted) return;
     if (_controller.pendingOutcome != outcome) return;
 
@@ -271,16 +413,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         hintsUsed: _controller.hintsUsed,
         onNewGame: () {
           if (!mounted) return;
-          setState(() => _userPaused = false);
-          unawaited(
-            _controller.startNewGame().then((_) {
-              if (mounted) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _syncClockToPauseState();
-                });
-              }
-            }),
-          );
+          _beginNewGame();
         },
         onHome: () {
           if (!mounted) return;
@@ -312,16 +445,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
         hintsUsed: _controller.hintsUsed,
         onNewGame: () {
           if (!mounted) return;
-          setState(() => _userPaused = false);
-          unawaited(
-            _controller.startNewGame().then((_) {
-              if (mounted) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _syncClockToPauseState();
-                });
-              }
-            }),
-          );
+          _beginNewGame();
         },
         onHome: () {
           if (!mounted) return;
@@ -348,6 +472,10 @@ class _SudokuGamePageState extends State<SudokuGamePage>
     final hasGrid = _controller.hasPlayableGrid;
     final loading = _controller.loading;
     final err = _controller.error;
+    final defeated =
+        _controller.pendingOutcome == SudokuGameOutcome.lost;
+    final mistakesRatio = (_controller.mistakes / _controller.maxMistakes)
+        .clamp(0.0, 1.0);
 
     return PopScope(
       canPop: false,
@@ -421,68 +549,119 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                     Row(
                       children: [
                         Expanded(
-                          child: ValueListenableBuilder<String>(
-                            valueListenable: _controller.elapsedLabelNotifier,
-                            builder: (context, timeLabel, _) {
-                              return _GameStatCard(
-                                icon: Icons.timer_outlined,
-                                label: 'Time',
-                                value: timeLabel,
-                                colorScheme: colorScheme,
-                                theme: theme,
-                                accent: colorScheme.primaryContainer,
-                                onAccent: colorScheme.onPrimaryContainer,
-                              );
-                            },
+                          child: FadeSlideIn(
+                            index: 0,
+                            child: ValueListenableBuilder<String>(
+                              valueListenable:
+                                  _controller.elapsedLabelNotifier,
+                              builder: (context, timeLabel, _) {
+                                return _GameStatCard(
+                                  icon: Icons.timer_outlined,
+                                  label: 'Time',
+                                  value: timeLabel,
+                                  colorScheme: colorScheme,
+                                  theme: theme,
+                                  accent: colorScheme.primaryContainer,
+                                  onAccent: colorScheme.onPrimaryContainer,
+                                );
+                              },
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _GameStatCard(
-                            icon: Icons.gpp_maybe_outlined,
-                            label: 'Mistakes',
-                            value:
-                                '${_controller.mistakes}/${_controller.maxMistakes}',
-                            colorScheme: colorScheme,
-                            theme: theme,
-                            accent: colorScheme.tertiaryContainer,
-                            onAccent: colorScheme.onTertiaryContainer,
+                          child: FadeSlideIn(
+                            index: 1,
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(end: mistakesRatio),
+                              duration: const Duration(milliseconds: 350),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, ratio, child) {
+                                return _GameStatCard(
+                                  icon: Icons.gpp_maybe_outlined,
+                                  label: 'Mistakes',
+                                  value:
+                                      '${_controller.mistakes}/${_controller.maxMistakes}',
+                                  colorScheme: colorScheme,
+                                  theme: theme,
+                                  accent: Color.lerp(
+                                    colorScheme.tertiaryContainer,
+                                    colorScheme.errorContainer,
+                                    ratio * 0.9,
+                                  )!,
+                                  onAccent: Color.lerp(
+                                    colorScheme.onTertiaryContainer,
+                                    colorScheme.onErrorContainer,
+                                    ratio,
+                                  )!,
+                                  pulseToken: _controller.mistakes,
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
-                    if (err != null)
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: colorScheme.error.withValues(alpha: 0.25),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.warning_amber_rounded,
-                                color: colorScheme.onErrorContainer,
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 260),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) =>
+                            FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, -0.4),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  err,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onErrorContainer,
-                                    height: 1.35,
+                            ),
+                        child: err != null
+                            ? DecoratedBox(
+                                key: ValueKey(err),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.errorContainer,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: colorScheme.error.withValues(
+                                      alpha: 0.25,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.warning_amber_rounded,
+                                        color: colorScheme.onErrorContainer,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          err,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                color:
+                                                    colorScheme
+                                                        .onErrorContainer,
+                                                height: 1.35,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
                       ),
+                    ),
                     if (hasGrid) ...[
                       if (err != null) const SizedBox(height: 12),
                       if (_gameUiPaused)
@@ -494,76 +673,175 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                           theme: theme,
                         )
                       else ...[
-                        SudokuGrid(
-                          dimension: _controller.puzzleDimension,
-                          boxRows: _controller.boxRowsResolved,
-                          boxCols: _controller.boxColsResolved,
-                          valueAt: _controller.cellAt,
-                          selectedRow: _controller.selectedRow,
-                          selectedCol: _controller.selectedCol,
-                          highlightDigit: _controller.highlightDigit,
-                          isGiven: _controller.isGiven,
-                          onCellTap: _controller.selectCell,
+                        Stack(
+                          children: [
+                            ShakeOnSignal(
+                              signal: _defeatToken,
+                              intensity: 10,
+                              duration: const Duration(milliseconds: 560),
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween(end: defeated ? 0.15 : 1.0),
+                                duration: const Duration(milliseconds: 700),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, saturation, child) {
+                                  if (saturation > 0.999) return child!;
+                                  return ColorFiltered(
+                                    colorFilter: ColorFilter.saturation(
+                                      saturation,
+                                    ),
+                                    child: child,
+                                  );
+                                },
+                                child: SudokuGrid(
+                                  dimension: _controller.puzzleDimension,
+                                  boxRows: _controller.boxRowsResolved,
+                                  boxCols: _controller.boxColsResolved,
+                                  valueAt: _controller.cellAt,
+                                  selectedRow: _controller.selectedRow,
+                                  selectedCol: _controller.selectedCol,
+                                  highlightDigit: _controller.highlightDigit,
+                                  isGiven: _controller.isGiven,
+                                  onCellTap: _controller.selectCell,
+                                  playCellEntrance: _expectCellEntrance,
+                                  pulseDigit: _pulseDigit,
+                                  pulseBoxIndex: _pulseBoxIndex,
+                                  waveToken: _waveToken,
+                                  errorToken: _errorToken,
+                                ),
+                              ),
+                            ),
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: Align(
+                                  alignment: Alignment.topCenter,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 10),
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 240,
+                                      ),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      transitionBuilder:
+                                          (child, animation) => FadeTransition(
+                                            opacity: animation,
+                                            child: SlideTransition(
+                                              position: Tween<Offset>(
+                                                begin: const Offset(0, -0.6),
+                                                end: Offset.zero,
+                                              ).animate(animation),
+                                              child: child,
+                                            ),
+                                          ),
+                                      child: _celebrationMessage == null
+                                          ? const SizedBox.shrink()
+                                          : _CelebrationPill(
+                                              key: ValueKey(
+                                                _celebrationMessage,
+                                              ),
+                                              message: _celebrationMessage!,
+                                              colorScheme: colorScheme,
+                                              theme: theme,
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 22),
-                        NumberPad(
-                          maxDigit: _controller.maxDigit,
-                          enabled: _controller.canPlay,
-                          activeDigit: _controller.highlightDigit,
-                          digitsFullyPlaced: _controller.digitsFullyPlaced,
-                          onDigit: _controller.numberPadDigit,
-                          onErase: _controller.clearCell,
-                          onHint: _controller.applyHint,
+                        FadeSlideIn(
+                          index: 2,
+                          child: NumberPad(
+                            maxDigit: _controller.maxDigit,
+                            enabled: _controller.canPlay,
+                            activeDigit: _controller.highlightDigit,
+                            digitsFullyPlaced: _controller.digitsFullyPlaced,
+                            onDigit: _controller.numberPadDigit,
+                            onErase: _controller.clearCell,
+                            onHint: _controller.applyHint,
+                          ),
                         ),
                       ],
                     ],
                   ],
                 ),
               ),
-              if (loading)
-                ColoredBox(
-                  color: colorScheme.surface.withValues(alpha: 0.82),
-                  child: Center(
-                    child: Card(
-                      elevation: 2,
-                      shadowColor: colorScheme.shadow.withValues(alpha: 0.2),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 28,
-                          vertical: 24,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 36,
-                              height: 36,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Building puzzle…',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Finding a unique ${widget.boardSize.label} grid for you',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: SignalFlash(
+                    signal: _defeatToken,
+                    color: colorScheme.error,
                   ),
                 ),
+              ),
+              Positioned.fill(
+                child: ConfettiBurst(signal: _confettiToken),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 240),
+                reverseDuration: const Duration(milliseconds: 200),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.96, end: 1).animate(
+                      animation,
+                    ),
+                    child: child,
+                  ),
+                ),
+                child: loading
+                    ? ColoredBox(
+                        key: const ValueKey('loading'),
+                        color: colorScheme.surface.withValues(alpha: 0.82),
+                        child: Center(
+                          child: Card(
+                            elevation: 2,
+                            shadowColor: colorScheme.shadow.withValues(
+                              alpha: 0.2,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 28,
+                                vertical: 24,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 36,
+                                    height: 36,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                      color: colorScheme.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Building puzzle…',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Finding a unique ${widget.boardSize.label} grid for you',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('idle')),
+              ),
             ],
           ),
         ),
@@ -581,6 +859,7 @@ class _GameStatCard extends StatelessWidget {
     required this.theme,
     required this.accent,
     required this.onAccent,
+    this.pulseToken,
   });
 
   final IconData icon;
@@ -591,8 +870,31 @@ class _GameStatCard extends StatelessWidget {
   final Color accent;
   final Color onAccent;
 
+  /// When set, the value re-pops whenever this token changes (mistake made).
+  final Object? pulseToken;
+
   @override
   Widget build(BuildContext context) {
+    Widget valueText = Text(
+      value,
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      overflow: TextOverflow.ellipsis,
+    );
+    if (pulseToken != null) {
+      valueText = TweenAnimationBuilder<double>(
+        key: ValueKey(pulseToken),
+        tween: Tween(begin: 0.55, end: 1),
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutBack,
+        builder: (context, scale, child) =>
+            Transform.scale(scale: scale, child: child),
+        child: valueText,
+      );
+    }
+
     return Material(
       color: colorScheme.surface,
       elevation: 0,
@@ -626,15 +928,71 @@ class _GameStatCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  valueText,
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Floating "progress made" chip that briefly overlays the top of the board
+/// when a digit or box is completed.
+class _CelebrationPill extends StatelessWidget {
+  const _CelebrationPill({
+    super.key,
+    required this.message,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  final String message;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.7, end: 1),
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutBack,
+      builder: (context, scale, child) => Transform.scale(
+        scale: scale,
+        child: child,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: colorScheme.secondary.withValues(alpha: 0.4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.check_circle_rounded,
+              size: 16,
+              color: colorScheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              message,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSecondaryContainer,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -670,6 +1028,14 @@ class _PausePlaceholder extends StatelessWidget {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 280),
       switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
+          child: child,
+        ),
+      ),
       child: Material(
         key: ValueKey('$userPaused-$ambientPaused'),
         color: colorScheme.surface,
@@ -687,10 +1053,14 @@ class _PausePlaceholder extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.pause_circle_filled_rounded,
-                size: 58,
-                color: colorScheme.primary,
+              PulseLoop(
+                amplitude: 0.05,
+                halfPeriod: const Duration(milliseconds: 1100),
+                child: Icon(
+                  Icons.pause_circle_filled_rounded,
+                  size: 58,
+                  color: colorScheme.primary,
+                ),
               ),
               const SizedBox(height: 18),
               Text(
@@ -710,17 +1080,19 @@ class _PausePlaceholder extends StatelessWidget {
               ),
               if (userPaused) ...[
                 const SizedBox(height: 26),
-                FilledButton.icon(
-                  onPressed: onResume,
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('Resume'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 28,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                PressableScale(
+                  child: FilledButton.icon(
+                    onPressed: onResume,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Resume'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
                 ),
