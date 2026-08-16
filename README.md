@@ -1,11 +1,11 @@
-# suduko
+# sudoku
 
 Flutter Sudoku game with difficulty selection, win history (persisted with `shared_preferences`), and light/dark theming. **4×4** and **9×9** puzzles use [`fludoku`](https://pub.dev/packages/fludoku); **6×6** and **12×12** use small built-in generators (2×3 and 3×4 blocks).
 
 ## Project structure
 
 ```
-suduku/
+sudoku/
 ├── android/                          # Android Gradle project, manifests, launcher assets
 ├── ios/                              # Xcode workspace, Runner, icons, launch screen
 ├── assets/
