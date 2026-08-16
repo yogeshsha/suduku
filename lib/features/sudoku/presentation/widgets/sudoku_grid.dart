@@ -168,7 +168,9 @@ class SudokuGrid extends StatelessWidget {
                       bg = colorScheme.surface;
                     }
 
-                    final textColor = sameDigit && !selected
+                    final textColor = selected
+                        ? colorScheme.onPrimaryContainer
+                        : sameDigit
                         ? colorScheme.onSecondaryContainer
                         : (given ? colorScheme.onSurface : colorScheme.primary);
 
