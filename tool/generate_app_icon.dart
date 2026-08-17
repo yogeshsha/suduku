@@ -28,6 +28,7 @@ void main() {
     y: size ~/ 2,
     radius: circleRadius,
     color: ColorRgb8(255, 255, 255),
+    antialias: true,
   );
 
   const faceSize = 460.0;
