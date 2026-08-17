@@ -12,7 +12,9 @@ import '../../domain/sudoku_win_record.dart';
 import '../widgets/animated_success_dialog.dart';
 import '../widgets/confetti_burst.dart';
 import '../widgets/fade_slide_in.dart';
+import '../widgets/hearts_row.dart';
 import '../widgets/how_to_play.dart';
+import '../widgets/mascot.dart';
 import '../widgets/mistake_and_game_over_dialogs.dart';
 import '../widgets/number_pad.dart';
 import '../widgets/pressable_scale.dart';
@@ -259,7 +261,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
     final newDigits = digits.difference(_prevCompletedDigits);
     if (newDigits.isNotEmpty) {
       _pulseDigit = newDigits.last;
-      _showCelebrationMessage('Number $_pulseDigit complete!');
+      _showCelebrationMessage('Number $_pulseDigit complete! 🌟');
     }
     _prevCompletedDigits = digits;
 
@@ -267,7 +269,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
     final newBoxes = boxes.difference(_prevCompletedBoxes);
     if (newBoxes.isNotEmpty) {
       _pulseBoxIndex = newBoxes.last;
-      _showCelebrationMessage('Box complete!');
+      _showCelebrationMessage('Box complete! 🔥');
     }
     _prevCompletedBoxes = boxes;
   }
@@ -491,22 +493,29 @@ class _SudokuGamePageState extends State<SudokuGamePage>
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: _confirmExitGame,
           ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Sudoku',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                '${widget.boardSize.label} · ${_controller.difficulty.title}',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+              const Mascot(mood: MascotMood.idle, size: 28),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${widget.boardSize.label} board',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    _controller.difficulty.title,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -578,10 +587,14 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                               curve: Curves.easeOutCubic,
                               builder: (context, ratio, child) {
                                 return _GameStatCard(
-                                  icon: Icons.gpp_maybe_outlined,
-                                  label: 'Mistakes',
-                                  value:
-                                      '${_controller.mistakes}/${_controller.maxMistakes}',
+                                  icon: Icons.favorite_rounded,
+                                  label: 'Hearts',
+                                  value: '',
+                                  valueWidget: HeartsRow(
+                                    mistakes: _controller.mistakes,
+                                    maxMistakes: _controller.maxMistakes,
+                                    color: colorScheme.error,
+                                  ),
                                   colorScheme: colorScheme,
                                   theme: theme,
                                   accent: Color.lerp(
@@ -756,6 +769,7 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                           child: NumberPad(
                             maxDigit: _controller.maxDigit,
                             enabled: _controller.canPlay,
+                            hintEnabled: _controller.canHint,
                             activeDigit: _controller.highlightDigit,
                             digitsFullyPlaced: _controller.digitsFullyPlaced,
                             onDigit: _controller.numberPadDigit,
@@ -860,6 +874,7 @@ class _GameStatCard extends StatelessWidget {
     required this.accent,
     required this.onAccent,
     this.pulseToken,
+    this.valueWidget,
   });
 
   final IconData icon;
@@ -873,16 +888,21 @@ class _GameStatCard extends StatelessWidget {
   /// When set, the value re-pops whenever this token changes (mistake made).
   final Object? pulseToken;
 
+  /// Overrides the plain text value with a richer widget (e.g. [HeartsRow]).
+  final Widget? valueWidget;
+
   @override
   Widget build(BuildContext context) {
-    Widget valueText = Text(
-      value,
-      style: theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w800,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-      overflow: TextOverflow.ellipsis,
-    );
+    Widget valueText =
+        valueWidget ??
+        Text(
+          value,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+          overflow: TextOverflow.ellipsis,
+        );
     if (pulseToken != null) {
       valueText = TweenAnimationBuilder<double>(
         key: ValueKey(pulseToken),
@@ -964,7 +984,7 @@ class _CelebrationPill extends StatelessWidget {
         child: child,
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(8, 6, 14, 6),
         decoration: BoxDecoration(
           color: colorScheme.secondaryContainer,
           borderRadius: BorderRadius.circular(999),
@@ -982,11 +1002,8 @@ class _CelebrationPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.check_circle_rounded,
-              size: 16,
-              color: colorScheme.onSecondaryContainer,
-            ),
+            const Mascot(mood: MascotMood.cheer, size: 22),
+            const SizedBox(width: 4),
             const SizedBox(width: 6),
             Text(
               message,

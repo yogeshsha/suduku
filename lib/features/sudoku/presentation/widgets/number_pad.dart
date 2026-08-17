@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../theme/sudoku_game_colors.dart';
 import 'pressable_scale.dart';
 
 /// Digit keys for the current grid size, plus erase and hint.
@@ -13,6 +14,7 @@ class NumberPad extends StatelessWidget {
     required this.onErase,
     required this.onHint,
     this.enabled = true,
+    this.hintEnabled = true,
     this.activeDigit,
     this.digitsFullyPlaced = const <int>{},
   });
@@ -22,6 +24,7 @@ class NumberPad extends StatelessWidget {
   final VoidCallback onErase;
   final VoidCallback onHint;
   final bool enabled;
+  final bool hintEnabled;
   final int? activeDigit;
   final Set<int> digitsFullyPlaced;
 
@@ -44,7 +47,10 @@ class NumberPad extends StatelessWidget {
       ];
     }
     if (max == 12) {
-      return List.generate(3, (r) => List.generate(4, (c) => r * 4 + c + 1));
+      return [
+        [1, 2, 3, 4, 5, 6],
+        [7, 8, 9, 10, 11, 12],
+      ];
     }
     final perRow = max <= 12 ? 6 : 5;
     final rows = <List<int>>[];
@@ -138,26 +144,67 @@ class NumberPad extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(4),
-                    child: PressableScale(
-                      child: FilledButton.icon(
-                        onPressed: enabled ? onHint : null,
-                        icon: const Icon(Icons.auto_fix_high_rounded, size: 20),
-                        label: const Text('Hint'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          backgroundColor: colorScheme.secondaryContainer,
-                          foregroundColor: colorScheme.onSecondaryContainer,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                    child: enabled && !hintEnabled
+                        ? _HintUnavailableNotice(height: 46)
+                        : PressableScale(
+                            child: FilledButton.icon(
+                              onPressed: enabled ? onHint : null,
+                              icon: const Icon(
+                                Icons.auto_fix_high_rounded,
+                                size: 20,
+                              ),
+                              label: const Text('Cubby hint'),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                backgroundColor: context.gameColors.gold,
+                                foregroundColor: context.gameColors.onGold,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
                   ),
                 ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown in place of the hint button when no hintable cell is selected.
+class _HintUnavailableNotice extends StatelessWidget {
+  const _HintUnavailableNotice({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      height: height,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
+      child: Text(
+        'Tap a box to reveal the number',
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -285,7 +332,7 @@ class _DigitKeyState extends State<_DigitKey>
                 elevation: 1,
                 shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               child: digitText,
@@ -298,7 +345,7 @@ class _DigitKeyState extends State<_DigitKey>
                 padding: EdgeInsets.zero,
                 foregroundColor: colorScheme.onSecondaryContainer,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               child: digitText,

@@ -18,9 +18,9 @@ extension GameDifficultyX on GameDifficulty {
   };
 
   String get title => switch (this) {
-    GameDifficulty.easy => 'Easy',
-    GameDifficulty.medium => 'Medium',
-    GameDifficulty.expert => 'Expert',
+    GameDifficulty.easy => '🌱 Sprout',
+    GameDifficulty.medium => '🧭 Explorer',
+    GameDifficulty.expert => '🏆 Champion',
   };
 
   String get subtitle => switch (this) {

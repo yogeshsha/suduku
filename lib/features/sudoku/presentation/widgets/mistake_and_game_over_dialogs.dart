@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/game_difficulty.dart';
+import 'hearts_row.dart';
+import 'mascot.dart';
 
 /// Soft feedback after a wrong digit while the game continues.
 class MistakeFeedbackDialog extends StatelessWidget {
@@ -20,24 +22,24 @@ class MistakeFeedbackDialog extends StatelessWidget {
     final remaining = maxMistakes - mistakes;
 
     final emphasis = remaining == 1
-        ? 'Only one mistake left'
-        : 'You have $remaining mistakes left';
+        ? 'One heart left'
+        : '$remaining hearts left';
 
     final detail = remaining == 1
-        ? 'The next wrong digit ends this puzzle.'
-        : 'Keep going—double-check rows, columns, and box regions.';
+        ? 'The next wrong digit ends this puzzle — take your time.'
+        : 'So close — double-check rows, columns, and box regions.';
 
     return AlertDialog(
       icon: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.92, end: 1),
         duration: const Duration(milliseconds: 480),
         curve: Curves.elasticOut,
-        child: Icon(Icons.grid_off_rounded, size: 48, color: colorScheme.error),
+        child: const Mascot(mood: MascotMood.oops, size: 56),
         builder: (context, scale, child) {
           return Transform.scale(scale: scale, child: child);
         },
       ),
-      title: const Text('Invalid move'),
+      title: const Text('So close!'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -81,13 +83,13 @@ class MistakeFeedbackDialog extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            'Mistakes used: $mistakes / $maxMistakes',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
+          const SizedBox(height: 12),
+          Center(
+            child: HeartsRow(
+              mistakes: mistakes,
+              maxMistakes: maxMistakes,
+              color: colorScheme.error,
+              size: 22,
             ),
           ),
         ],
@@ -169,22 +171,19 @@ class GameOverDialog extends StatelessWidget {
         tween: Tween(begin: 0.88, end: 1),
         duration: const Duration(milliseconds: 520),
         curve: Curves.elasticOut,
-        child: Icon(
-          Icons.sentiment_dissatisfied_rounded,
-          size: 52,
-          color: colorScheme.error,
-        ),
+        child: const Mascot(mood: MascotMood.oops, size: 60),
         builder: (context, scale, child) {
           return Transform.scale(scale: scale, child: child);
         },
       ),
-      title: const Text('Game over'),
+      title: const Text('Almost had it! 💪'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'You reached $maxMistakes mistakes on ${difficulty.title} difficulty. The puzzle stops here.',
+            'Every puzzle master started with a few wrong guesses. Give this '
+            '${difficulty.title} puzzle another shot.',
             style: theme.textTheme.bodyLarge?.copyWith(height: 1.35),
           ),
           const SizedBox(height: 14),
@@ -194,10 +193,32 @@ class GameOverDialog extends StatelessWidget {
             label: 'Difficulty',
             value: difficulty.title,
           ),
-          _StatRow(
-            icon: Icons.gpp_maybe_outlined,
-            label: 'Mistakes',
-            value: '$mistakes / $maxMistakes',
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.favorite_rounded,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Hearts',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                HeartsRow(
+                  mistakes: mistakes,
+                  maxMistakes: maxMistakes,
+                  color: colorScheme.error,
+                  size: 16,
+                ),
+              ],
+            ),
           ),
           _StatRow(
             icon: Icons.lightbulb_outline,
@@ -217,7 +238,7 @@ class GameOverDialog extends StatelessWidget {
         FilledButton.icon(
           onPressed: onNewGame,
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('New game'),
+          label: const Text('Try again'),
         ),
       ],
     );

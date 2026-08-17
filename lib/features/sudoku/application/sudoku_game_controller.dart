@@ -153,6 +153,14 @@ class SudokuGameController extends ChangeNotifier {
       !isGameOver &&
       !isPuzzleComplete;
 
+  bool get canHint {
+    if (!canPlay) return false;
+    final row = _selectedRow;
+    final col = _selectedCol;
+    if (row == null || col == null) return false;
+    return !isGiven(row, col);
+  }
+
   bool get isPuzzleComplete {
     final b = _board;
     if (b != null) return b.isComplete;

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../theme/sudoku_game_colors.dart';
 import '../../../../theme/theme_mode_picker_button.dart';
 import '../../domain/game_difficulty.dart';
 import '../../domain/sudoku_board_size.dart';
 import '../widgets/fade_slide_in.dart';
 import '../widgets/how_to_play.dart';
+import '../widgets/mascot.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/pulse_loop.dart';
 import 'sudoku_game_page.dart';
@@ -35,15 +37,23 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final gameColors = context.gameColors;
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
       appBar: AppBar(
-        title: Text(
-          'Sudoku',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Mascot(mood: MascotMood.idle, size: 30),
+            const SizedBox(width: 8),
+            Text(
+              'Cubby\'s Sudoku',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -63,70 +73,72 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
               FadeSlideIn(
                 index: 0,
                 child: Material(
-                  color: colorScheme.surface,
-                  elevation: 0,
-                  surfaceTintColor: colorScheme.primary.withValues(alpha: 0.08),
+                  color: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    side: BorderSide(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-                    ),
+                    borderRadius: BorderRadius.circular(28),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 26, 22, 26),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            _GentleFloat(
-                              child: TweenAnimationBuilder<double>(
-                                tween: Tween(begin: 0.4, end: 1),
-                                duration: const Duration(milliseconds: 650),
-                                curve: Curves.easeOutBack,
-                                builder: (context, scale, child) =>
-                                    Transform.scale(scale: scale, child: child),
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: colorScheme.primaryContainer
-                                        .withValues(alpha: 0.65),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Icon(
-                                      Icons.grid_4x4_rounded,
-                                      size: 40,
-                                      color: colorScheme.onPrimaryContainer,
-                                    ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: gameColors.heroGradient,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
+                      child: Row(
+                        children: [
+                          _GentleFloat(
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.4, end: 1),
+                              duration: const Duration(milliseconds: 650),
+                              curve: Curves.easeOutBack,
+                              builder: (context, scale, child) =>
+                                  Transform.scale(scale: scale, child: child),
+                              child: DecoratedBox(
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Mascot(
+                                    mood: MascotMood.idle,
+                                    size: 56,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Classic\nSudoku',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 10),
-                        Text(
-                          '4×4 and 9×9 use the fludoku engine; 6×6 is mini Sudoku (2×3 blocks, '
-                          'digits 1–6); 12×12 uses 3×4 blocks and digits 1–12. Each row, '
-                          'column, and box must contain every digit exactly once.',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            height: 1.45,
-                            color: colorScheme.onSurfaceVariant,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Hey, puzzler! 👋',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Cubby picked a fresh grid for you. Row, '
+                                  'column, and box each need every digit once — '
+                                  'no repeats.',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.92),
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -159,6 +171,13 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                       itemBuilder: (context, i) {
                         final s = SudokuBoardSize.values[i];
                         final selected = _boardSize == s;
+                        final tileColors = [
+                          colorScheme.secondary,
+                          colorScheme.tertiary,
+                          gameColors.gold,
+                          gameColors.pink,
+                        ];
+                        final tileColor = tileColors[i % tileColors.length];
                         return Tooltip(
                           message: s.subtitle,
                           child: AnimatedScale(
@@ -167,17 +186,14 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                             curve: Curves.easeOutBack,
                             child: Material(
                               color: selected
-                                  ? colorScheme.secondaryContainer
+                                  ? tileColor.withValues(alpha: 0.16)
                                   : colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.55),
-                              surfaceTintColor: colorScheme.primary.withValues(
-                                alpha: selected ? 0.12 : 0.06,
-                              ),
+                                      .withValues(alpha: 0.5),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 side: BorderSide(
                                   color: selected
-                                      ? colorScheme.secondary
+                                      ? tileColor
                                       : colorScheme.outlineVariant.withValues(
                                           alpha: 0.75,
                                         ),
@@ -195,12 +211,20 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                                   ),
                                   child: Row(
                                     children: [
-                                      Icon(
-                                        Icons.grid_view_rounded,
-                                        size: 22,
-                                        color: selected
-                                            ? colorScheme.onSecondaryContainer
-                                            : colorScheme.primary,
+                                      DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: tileColor,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(5),
+                                          child: Icon(
+                                            Icons.grid_view_rounded,
+                                            size: 16,
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
@@ -210,8 +234,7 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                                               ?.copyWith(
                                             fontWeight: FontWeight.w800,
                                             color: selected
-                                                ? colorScheme
-                                                      .onSecondaryContainer
+                                                ? colorScheme.onSurface
                                                 : colorScheme.onSurface,
                                           ),
                                           overflow: TextOverflow.ellipsis,
@@ -258,19 +281,67 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    SegmentedButton<GameDifficulty>(
-                      segments: GameDifficulty.values
-                          .map(
-                            (d) => ButtonSegment<GameDifficulty>(
-                              value: d,
-                              label: Text(d.title),
-                              tooltip: d.subtitle,
+                    Row(
+                      children: [
+                        for (final d in GameDifficulty.values)
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: d == GameDifficulty.values.last ? 0 : 8,
+                              ),
+                              child: Tooltip(
+                                message: d.subtitle,
+                                child: PressableScale(
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _difficulty = d),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 220,
+                                      ),
+                                      curve: Curves.easeOutBack,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient: _difficulty == d
+                                            ? LinearGradient(
+                                                colors: gameColors.heroGradient,
+                                              )
+                                            : null,
+                                        color: _difficulty == d
+                                            ? null
+                                            : colorScheme
+                                                  .surfaceContainerHighest
+                                                  .withValues(alpha: 0.5),
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                        border: Border.all(
+                                          color: _difficulty == d
+                                              ? Colors.transparent
+                                              : colorScheme.outlineVariant
+                                                    .withValues(alpha: 0.75),
+                                        ),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        d.title,
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          color: _difficulty == d
+                                              ? Colors.white
+                                              : colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                          )
-                          .toList(),
-                      selected: {_difficulty},
-                      onSelectionChanged: (s) =>
-                          setState(() => _difficulty = s.first),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     AnimatedSwitcher(
@@ -294,17 +365,50 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
               FadeSlideIn(
                 index: 3,
                 child: PressableScale(
-                  child: FilledButton.icon(
-                    onPressed: _openGame,
-                    icon: PulseLoop(
-                      amplitude: 0.07,
-                      child: const Icon(Icons.play_arrow_rounded),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      gradient: LinearGradient(
+                        colors: gameColors.heroGradient,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: gameColors.heroGradient.last.withValues(
+                            alpha: 0.4,
+                          ),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                    label: const Text('Start game'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: _openGame,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              PulseLoop(
+                                amplitude: 0.07,
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Play',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -321,13 +425,10 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                         SudokuHistoryPage.route(),
                       );
                     },
-                    icon: const Icon(Icons.history_rounded),
-                    label: const Text('History'),
+                    icon: const Icon(Icons.emoji_events_rounded),
+                    label: const Text('Trophy Room'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
                     ),
                   ),
                 ),

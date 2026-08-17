@@ -7,6 +7,7 @@ import '../../domain/sudoku_win_record.dart';
 import '../navigation/page_transitions.dart';
 import '../widgets/fade_slide_in.dart';
 import '../widgets/how_to_play.dart';
+import '../widgets/mascot.dart';
 
 enum HistoryListFilter { all, win, lost }
 
@@ -155,24 +156,20 @@ class _SudokuHistoryPageState extends State<SudokuHistoryPage> {
           },
           child: Column(
             children: [
-              Icon(
-                Icons.history_rounded,
-                size: 64,
-                color: colorScheme.primary.withValues(alpha: 0.45),
-              ),
+              const Mascot(mood: MascotMood.oops, size: 72),
               const SizedBox(height: 20),
               Text(
-                'No games yet',
+                'No trophies yet!',
                 style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
               Text(
-                'Wins and losses are saved here so you can review difficulty, '
-                'time, and stats.',
+                'Win your first puzzle and Cubby will start the shelf for '
+                'you — every game you finish is saved right here.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   height: 1.45,
@@ -237,7 +234,7 @@ class _SudokuHistoryPageState extends State<SudokuHistoryPage> {
       backgroundColor: colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         title: Text(
-          'History',
+          'Trophy Room',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
           ),

@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
+import '../../../../theme/sudoku_game_colors.dart';
+
 /// Square Sudoku grid with thick lines between [boxRows]×[boxCols] blocks.
 ///
 /// Motion, all driven by immutable inputs so cells stay cheap StatefulWidgets:
@@ -52,6 +54,7 @@ class SudokuGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final gameColors = context.gameColors;
     final isDark = theme.brightness == Brightness.dark;
 
     // Line colors derived from onSurface so they stay visible over every cell
@@ -152,6 +155,11 @@ class SudokuGrid extends StatelessWidget {
                         highlightDigit != null &&
                         value != 0 &&
                         value == highlightDigit;
+                    final boxIndex =
+                        (row ~/ boxRows) * boxesPerRow + (col ~/ boxCols);
+                    final boxTint = boxIndex.isEven
+                        ? gameColors.boxTintA
+                        : gameColors.boxTintB;
 
                     Color bg;
                     if (selected) {
@@ -161,11 +169,14 @@ class SudokuGrid extends StatelessWidget {
                         alpha: 0.85,
                       );
                     } else if (sameBox || sameLine) {
-                      bg = colorScheme.surfaceContainerHigh.withValues(
-                        alpha: 0.65,
+                      bg = Color.alphaBlend(
+                        colorScheme.surfaceContainerHigh.withValues(
+                          alpha: 0.65,
+                        ),
+                        boxTint,
                       );
                     } else {
-                      bg = colorScheme.surface;
+                      bg = boxTint;
                     }
 
                     final textColor = selected
@@ -185,7 +196,7 @@ class SudokuGrid extends StatelessWidget {
                       ),
                       selected: selected,
                       onTap: () => onCellTap(row, col),
-                      boxIndex: (row ~/ boxRows) * boxesPerRow + (col ~/ boxCols),
+                      boxIndex: boxIndex,
                       indexInBox: (row % boxRows) * boxCols + (col % boxCols),
                       playEntrance: playCellEntrance,
                       entranceDelay: Duration(
