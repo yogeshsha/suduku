@@ -8,6 +8,7 @@ import '../../application/sudoku_game_controller.dart';
 import '../../data/win_history_repository.dart';
 import '../../domain/game_difficulty.dart';
 import '../../domain/sudoku_board_size.dart';
+import '../../domain/sudoku_saved_game.dart';
 import '../../domain/sudoku_win_record.dart';
 import '../widgets/animated_success_dialog.dart';
 import '../widgets/confetti_burst.dart';
@@ -28,10 +29,26 @@ class SudokuGamePage extends StatefulWidget {
     super.key,
     required this.difficulty,
     required this.boardSize,
+    this.resumeData,
   });
+
+  /// Re-enters a game previously captured by [SudokuGameController]'s
+  /// autosave, restoring the same board, timer, mistakes, and hints.
+  factory SudokuGamePage.resuming(SudokuSavedGame saved) {
+    return SudokuGamePage(
+      key: ValueKey('resume-${saved.savedAtEpochMs}'),
+      difficulty: saved.difficulty,
+      boardSize: SudokuBoardSize.fromDimension(saved.dimension),
+      resumeData: saved,
+    );
+  }
 
   final GameDifficulty difficulty;
   final SudokuBoardSize boardSize;
+
+  /// When set, the page resumes this saved game instead of generating a new
+  /// puzzle.
+  final SudokuSavedGame? resumeData;
 
   @override
   State<SudokuGamePage> createState() => _SudokuGamePageState();
@@ -79,9 +96,17 @@ class _SudokuGamePageState extends State<SudokuGamePage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _controller.addListener(_onController);
-    _controller.setDifficulty(widget.difficulty);
+    final resume = widget.resumeData;
+    if (resume == null) {
+      _controller.setDifficulty(widget.difficulty);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_controller.startNewGame());
+      if (!mounted) return;
+      if (resume != null) {
+        unawaited(_controller.resumeGame(resume));
+      } else {
+        unawaited(_controller.startNewGame());
+      }
     });
   }
 
@@ -835,14 +860,18 @@ class _SudokuGamePageState extends State<SudokuGamePage>
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'Building puzzle…',
+                                    widget.resumeData != null
+                                        ? 'Restoring your puzzle…'
+                                        : 'Building puzzle…',
                                     style: theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Finding a unique ${widget.boardSize.label} grid for you',
+                                    widget.resumeData != null
+                                        ? 'Picking up right where you left off'
+                                        : 'Finding a unique ${widget.boardSize.label} grid for you',
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: colorScheme.onSurfaceVariant,

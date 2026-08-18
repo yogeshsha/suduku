@@ -4,11 +4,13 @@ import 'dart:isolate';
 import 'package:fludoku/fludoku.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/game_save_repository.dart';
 import '../data/sudoku_fludoku_isolate.dart';
 import '../data/sudoku_six_engine.dart';
 import '../data/sudoku_twelve_engine.dart';
 import '../domain/game_difficulty.dart';
 import '../domain/sudoku_board_size.dart';
+import '../domain/sudoku_saved_game.dart';
 
 enum SudokuGameOutcome { won, lost }
 
@@ -38,6 +40,8 @@ class SudokuGameController extends ChangeNotifier {
 
   Stopwatch? _gameClock;
   Timer? _tickTimer;
+  Duration _elapsedOffset = Duration.zero;
+  int _autosaveTicks = 0;
 
   /// Updated every second while the clock runs so the time stat can repaint
   /// without rebuilding the whole board (important for larger grids).
@@ -102,7 +106,7 @@ class SudokuGameController extends ChangeNotifier {
       ? SudokuTwelveBundle.boxCols
       : _boardSize.boxCols;
 
-  Duration get elapsed => _gameClock?.elapsed ?? Duration.zero;
+  Duration get elapsed => _elapsedOffset + (_gameClock?.elapsed ?? Duration.zero);
   String get elapsedLabel => elapsedLabelNotifier.value;
 
   int cellAt(int row, int col) {
@@ -238,6 +242,7 @@ class SudokuGameController extends ChangeNotifier {
     _solutionValues = null;
     elapsedLabelNotifier.value = '00:00';
     notifyListeners();
+    unawaited(_clearSavedGame());
 
     try {
       if (_usesSix) {
@@ -300,6 +305,106 @@ class SudokuGameController extends ChangeNotifier {
     _loading = false;
     _startClock();
     notifyListeners();
+    unawaited(_persistSnapshot());
+  }
+
+  /// Restores a game previously captured by [_persistSnapshot], reconstructing
+  /// whichever engine's board/bundle matches [SudokuSavedGame.dimension].
+  Future<void> resumeGame(SudokuSavedGame saved) async {
+    final genId = ++_genToken;
+    _tickTimer?.cancel();
+    _tickTimer = null;
+    _gameClock?.stop();
+    _gameClock = null;
+    _loading = true;
+    _error = null;
+    _pendingOutcome = null;
+    _pendingMistakeAck = null;
+    _mistakes = saved.mistakes;
+    _hintsUsed = saved.hintsUsed;
+    _selectedRow = saved.selectedRow;
+    _selectedCol = saved.selectedCol;
+    _highlightDigit = saved.highlightDigit;
+    _difficulty = saved.difficulty;
+    _board = null;
+    _six = null;
+    _twelve = null;
+    _solutionValues = null;
+    elapsedLabelNotifier.value = _formatDuration(
+      Duration(milliseconds: saved.elapsedMs),
+    );
+    notifyListeners();
+
+    try {
+      if (_usesSix) {
+        final bundle = SudokuSixBundle.create(
+          saved.givensGrid,
+          saved.solutionGrid,
+        );
+        _copyGridInto(saved.currentGrid, bundle.grid);
+        if (genId != _genToken) return;
+        _six = bundle;
+        _solutionValues = bundle.solution
+            .map((r) => List<int>.from(r))
+            .toList();
+        _board = null;
+        _twelve = null;
+      } else if (_usesTwelve) {
+        final bundle = SudokuTwelveBundle.create(
+          saved.givensGrid,
+          saved.solutionGrid,
+        );
+        _copyGridInto(saved.currentGrid, bundle.grid);
+        if (genId != _genToken) return;
+        _twelve = bundle;
+        _solutionValues = bundle.solution
+            .map((r) => List<int>.from(r))
+            .toList();
+        _board = null;
+        _six = null;
+      } else {
+        final board = Board.withValues(saved.givensGrid);
+        for (var r = 0; r < saved.dimension; r++) {
+          for (var c = 0; c < saved.dimension; c++) {
+            final given = saved.givensGrid[r][c] != 0;
+            final value = saved.currentGrid[r][c];
+            if (!given && value != 0) {
+              board.setAt(row: r, col: c, value: value);
+            }
+          }
+        }
+        if (genId != _genToken) return;
+        _board = board;
+        _solutionValues = saved.solutionGrid
+            .map((r) => List<int>.from(r))
+            .toList();
+        _six = null;
+        _twelve = null;
+      }
+    } catch (e) {
+      if (genId != _genToken) return;
+      _error = 'Could not resume your saved game. Start a new one.';
+      _loading = false;
+      _board = null;
+      _six = null;
+      _twelve = null;
+      notifyListeners();
+      unawaited(_clearSavedGame());
+      return;
+    }
+
+    if (genId != _genToken) return;
+    _loading = false;
+    _startClock(initialOffset: Duration(milliseconds: saved.elapsedMs));
+    notifyListeners();
+  }
+
+  static void _copyGridInto(List<List<int>> src, List<List<int>> dst) {
+    for (var r = 0; r < src.length; r++) {
+      for (var c = 0; c < src[r].length; c++) {
+        dst[r][c] = src[r][c];
+      }
+    }
   }
 
   bool isGiven(int row, int col) {
@@ -338,6 +443,7 @@ class SudokuGameController extends ChangeNotifier {
       }
       _clearHighlightIfThatDigitIsComplete();
       notifyListeners();
+      _persistOrClearIfWon();
       return;
     }
 
@@ -359,6 +465,7 @@ class SudokuGameController extends ChangeNotifier {
       }
       _clearHighlightIfThatDigitIsComplete();
       notifyListeners();
+      _persistOrClearIfWon();
       return;
     }
 
@@ -380,6 +487,7 @@ class SudokuGameController extends ChangeNotifier {
       }
       _clearHighlightIfThatDigitIsComplete();
       notifyListeners();
+      _persistOrClearIfWon();
     }
   }
 
@@ -392,6 +500,21 @@ class SudokuGameController extends ChangeNotifier {
       _pendingMistakeAck = _mistakes;
     }
     notifyListeners();
+    if (_pendingOutcome == SudokuGameOutcome.lost) {
+      unawaited(_clearSavedGame());
+    } else {
+      unawaited(_persistSnapshot());
+    }
+  }
+
+  /// Persists the in-progress snapshot, or clears it if this move just won
+  /// the game (a finished game has nothing left to resume).
+  void _persistOrClearIfWon() {
+    if (_pendingOutcome == SudokuGameOutcome.won) {
+      unawaited(_clearSavedGame());
+    } else {
+      unawaited(_persistSnapshot());
+    }
   }
 
   void clearCell() {
@@ -410,6 +533,7 @@ class SudokuGameController extends ChangeNotifier {
       }
       _highlightDigit = null;
       notifyListeners();
+      unawaited(_persistSnapshot());
       return;
     }
     final s = _six;
@@ -417,6 +541,7 @@ class SudokuGameController extends ChangeNotifier {
       s.grid[row][col] = 0;
       _highlightDigit = null;
       notifyListeners();
+      unawaited(_persistSnapshot());
       return;
     }
     final t = _twelve;
@@ -424,6 +549,7 @@ class SudokuGameController extends ChangeNotifier {
       t.grid[row][col] = 0;
       _highlightDigit = null;
       notifyListeners();
+      unawaited(_persistSnapshot());
     }
   }
 
@@ -453,6 +579,7 @@ class SudokuGameController extends ChangeNotifier {
       }
       _clearHighlightIfThatDigitIsComplete();
       notifyListeners();
+      _persistOrClearIfWon();
       return;
     }
     final s = _six;
@@ -466,6 +593,7 @@ class SudokuGameController extends ChangeNotifier {
       }
       _clearHighlightIfThatDigitIsComplete();
       notifyListeners();
+      _persistOrClearIfWon();
       return;
     }
     final t = _twelve;
@@ -479,6 +607,7 @@ class SudokuGameController extends ChangeNotifier {
       }
       _clearHighlightIfThatDigitIsComplete();
       notifyListeners();
+      _persistOrClearIfWon();
     }
   }
 
@@ -528,21 +657,32 @@ class SudokuGameController extends ChangeNotifier {
     }
   }
 
-  void _startClock() {
+  void _startClock({Duration initialOffset = Duration.zero}) {
     _tickTimer?.cancel();
     _tickTimer = null;
     _gameClock?.stop();
+    _elapsedOffset = initialOffset;
+    _autosaveTicks = 0;
     _gameClock = Stopwatch()..start();
     _pushElapsedLabel();
+    _armTickTimer();
+  }
+
+  void _armTickTimer() {
+    _tickTimer?.cancel();
     _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _pushElapsedLabel();
+      _autosaveTicks++;
+      // Keeps a crash-recoverable snapshot roughly fresh even if the player
+      // is just staring at the board without making a move.
+      if (_autosaveTicks % 5 == 0 && _pendingOutcome == null) {
+        unawaited(_persistSnapshot());
+      }
     });
   }
 
   void _pushElapsedLabel() {
-    final sw = _gameClock;
-    if (sw == null) return;
-    final next = _formatDuration(sw.elapsed);
+    final next = _formatDuration(elapsed);
     if (elapsedLabelNotifier.value != next) {
       elapsedLabelNotifier.value = next;
     }
@@ -557,6 +697,11 @@ class SudokuGameController extends ChangeNotifier {
     }
     _pushElapsedLabel();
     notifyListeners();
+    // The app is backgrounding or the route is being covered — exactly the
+    // moment a crash or OS-kill is most likely, so checkpoint now.
+    if (hasPlayableGrid && _pendingOutcome == null) {
+      unawaited(_persistSnapshot());
+    }
   }
 
   void resumeSolveTimer() {
@@ -567,10 +712,7 @@ class SudokuGameController extends ChangeNotifier {
     if (isGameOver) return;
     if (_gameClock!.isRunning) return;
     _gameClock!.start();
-    _tickTimer?.cancel();
-    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _pushElapsedLabel();
-    });
+    _armTickTimer();
     _pushElapsedLabel();
     notifyListeners();
   }
@@ -592,6 +734,52 @@ class SudokuGameController extends ChangeNotifier {
       return '$h:$mm:$ss';
     }
     return '$mm:$ss';
+  }
+
+  /// Builds a resumable snapshot of the current game state.
+  SudokuSavedGame _buildSnapshot() {
+    final dim = puzzleDimension;
+    final givens = List.generate(
+      dim,
+      (r) => List.generate(dim, (c) => isGiven(r, c) ? cellAt(r, c) : 0),
+    );
+    final current = List.generate(
+      dim,
+      (r) => List.generate(dim, (c) => cellAt(r, c)),
+    );
+    return SudokuSavedGame(
+      dimension: dim,
+      difficultyKey: _difficulty.name,
+      mistakes: _mistakes,
+      hintsUsed: _hintsUsed,
+      elapsedMs: elapsed.inMilliseconds,
+      selectedRow: _selectedRow,
+      selectedCol: _selectedCol,
+      highlightDigit: _highlightDigit,
+      givensGrid: givens,
+      currentGrid: current,
+      solutionGrid: _solutionValues!,
+      savedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  Future<void> _persistSnapshot() async {
+    if (!hasPlayableGrid || _solutionValues == null) return;
+    try {
+      final repo = await GameSaveRepository.instance();
+      await repo.save(_buildSnapshot());
+    } catch (_) {
+      // Persistence is best-effort; gameplay should still feel complete.
+    }
+  }
+
+  Future<void> _clearSavedGame() async {
+    try {
+      final repo = await GameSaveRepository.instance();
+      await repo.clear();
+    } catch (_) {
+      // Best-effort.
+    }
   }
 
   @override

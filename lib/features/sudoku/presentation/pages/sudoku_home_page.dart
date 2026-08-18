@@ -1,11 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:upgrader/upgrader.dart';
 
+import '../../../../route_observer.dart';
 import '../../../../theme/sudoku_game_colors.dart';
 import '../../../../theme/theme_mode_picker_button.dart';
 import '../../../../update/cubby_update_messages.dart';
+import '../../data/game_save_repository.dart';
 import '../../domain/game_difficulty.dart';
 import '../../domain/sudoku_board_size.dart';
+import '../../domain/sudoku_saved_game.dart';
+import '../../domain/sudoku_win_record.dart';
 import '../widgets/fade_slide_in.dart';
 import '../widgets/how_to_play.dart';
 import '../widgets/mascot.dart';
@@ -22,9 +28,11 @@ class SudokuHomePage extends StatefulWidget {
   State<SudokuHomePage> createState() => _SudokuHomePageState();
 }
 
-class _SudokuHomePageState extends State<SudokuHomePage> {
+class _SudokuHomePageState extends State<SudokuHomePage> with RouteAware {
   GameDifficulty _difficulty = GameDifficulty.medium;
   SudokuBoardSize _boardSize = SudokuBoardSize.dim9;
+  SudokuSavedGame? _savedGame;
+  bool _routeAwareSubscribed = false;
 
   /// Checked (and, at most, prompted) only from the home screen — never
   /// while a puzzle is in progress on [SudokuGamePage] — so an update
@@ -36,6 +44,44 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
     durationUntilAlertAgain: const Duration(days: 3),
   );
 
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshSavedGame());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeAwareSubscribed) return;
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic>) {
+      appRouteObserver.subscribe(this, route);
+      _routeAwareSubscribed = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_routeAwareSubscribed) {
+      appRouteObserver.unsubscribe(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Coming back from the game page (finished, exited, or crashed and
+    // relaunched into it) — refresh whether a resumable game exists.
+    unawaited(_refreshSavedGame());
+  }
+
+  Future<void> _refreshSavedGame() async {
+    final repo = await GameSaveRepository.instance();
+    if (!mounted) return;
+    setState(() => _savedGame = repo.readSync());
+  }
+
   void _openGame() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -43,6 +89,51 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
             SudokuGamePage(difficulty: _difficulty, boardSize: _boardSize),
       ),
     );
+  }
+
+  void _resumeGame(SudokuSavedGame saved) {
+    unawaited(
+      Navigator.of(context)
+          .push<void>(
+            MaterialPageRoute<void>(
+              builder: (context) => SudokuGamePage.resuming(saved),
+            ),
+          )
+          .then((_) => _refreshSavedGame()),
+    );
+  }
+
+  Future<void> _confirmDiscardSavedGame() async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(
+          Icons.delete_outline_rounded,
+          size: 36,
+          color: colorScheme.error,
+        ),
+        title: const Text('Discard saved game?'),
+        content: const Text(
+          'Your in-progress puzzle, timer, and mistakes will be lost.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep it'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final repo = await GameSaveRepository.instance();
+    await repo.clear();
+    if (!mounted) return;
+    setState(() => _savedGame = null);
   }
 
   @override
@@ -162,6 +253,17 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
                     ),
                   ),
                 ),
+                if (_savedGame != null) ...[
+                  const SizedBox(height: 16),
+                  FadeSlideIn(
+                    index: 1,
+                    child: _ResumeGameCard(
+                      saved: _savedGame!,
+                      onResume: () => _resumeGame(_savedGame!),
+                      onDiscard: _confirmDiscardSavedGame,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 FadeSlideIn(
                   index: 1,
@@ -474,6 +576,102 @@ class _SudokuHomePageState extends State<SudokuHomePage> {
           end: Offset.zero,
         ).animate(animation),
         child: child,
+      ),
+    );
+  }
+}
+
+/// Prompts to continue a puzzle that was in progress when the app was last
+/// closed (or crashed) — restores the same board, timer, and mistakes.
+class _ResumeGameCard extends StatelessWidget {
+  const _ResumeGameCard({
+    required this.saved,
+    required this.onResume,
+    required this.onDiscard,
+  });
+
+  final SudokuSavedGame saved;
+  final VoidCallback onResume;
+  final VoidCallback onDiscard;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Material(
+      color: colorScheme.secondaryContainer.withValues(alpha: 0.55),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: colorScheme.secondary.withValues(alpha: 0.4)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: colorScheme.secondary,
+              child: const Icon(
+                Icons.play_circle_fill_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Resume your game',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${saved.dimension}×${saved.dimension} · '
+                    '${saved.difficulty.title} · '
+                    '${SudokuWinRecord.formatSolveDuration(saved.elapsed)} · '
+                    '${saved.mistakes} mistake${saved.mistakes == 1 ? '' : 's'}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSecondaryContainer.withValues(
+                        alpha: 0.85,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  PressableScale(
+                    child: FilledButton.tonalIcon(
+                      onPressed: onResume,
+                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: const Text('Resume'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colorScheme.secondary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Discard saved game',
+              onPressed: onDiscard,
+              icon: Icon(
+                Icons.close_rounded,
+                color: colorScheme.onSecondaryContainer.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
